@@ -1,0 +1,16 @@
+{
+  "name": "value-tree",
+  "version": "0.1.0",
+  "description": "Implementation of a value tree through Ethereum smart contracts.",
+  "main": "index.js",
+  "repository": "https://github.com/dowlandaiello/value-tree",
+  "author": "Dowland Aiello",
+  "license": "MIT",
+  "private": false,
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.4.2"
+  },
+  "devDependencies": {
+    "truffle": "^5.4.29"
+  }
+}
