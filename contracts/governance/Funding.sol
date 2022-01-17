@@ -1,4 +1,6 @@
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+// SPDX-License-Identifier: MIT
+
+pragma solidity ^0.8.11;
 
 /* Funds can be designed to be spent from a treasury of saved funds in a
  * governance contract, or be designated to be minted. */
@@ -7,9 +9,9 @@ enum FundingType {
 	MINT
 }
 
-public struct FundingRate {
+struct FundingRate {
 	/* The token used for funding. Null for ETH */
-	IERC20 token;
+	address token;
 
 	/* The number of tokens to be allocated in total */
 	uint256 value;
