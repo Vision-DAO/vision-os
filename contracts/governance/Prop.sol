@@ -54,7 +54,7 @@ contract Prop {
 		require(governed.transferFrom(msg.sender, address(this), _votes), "Failed to delegate votes");
 
 		// Votes have to be weighted by their balance of the governing token
-		uint256 weight = governed.balanceOf(msg.sender);
+		uint256 weight = _votes;
 
 		rate.value += weight * _rate.value;
 		rate.intervalLength += weight * _rate.intervalLength;

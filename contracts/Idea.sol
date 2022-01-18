@@ -4,6 +4,7 @@ import "./governance/Funding.sol";
 import "./governance/Prop.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 pragma solidity ^0.8.11;
 
@@ -50,7 +51,7 @@ contract Idea is ERC20 {
 		// Votes for the funds rate are weighted based on balances of this governing
 		// token
 		FundingRate memory finalRate = proposal.finalFundsRate();
-		finalRate.value = (finalRate.expiry - block.timestamp) / finalRate.intervalLength;
+		finalRate.value *= (finalRate.expiry - block.timestamp) / finalRate.intervalLength;
 
 		// Record the new funds rate
 		address toFund = address (proposal.toFund());
