@@ -51,7 +51,7 @@ contract Idea is ERC20 {
 		// Votes for the funds rate are weighted based on balances of this governing
 		// token
 		FundingRate memory finalRate = proposal.finalFundsRate();
-		finalRate.value *= (finalRate.expiry - block.timestamp) / finalRate.intervalLength;
+		finalRate.value /= (finalRate.expiry - block.timestamp) / finalRate.intervalLength;
 
 		// Record the new funds rate
 		address toFund = address (proposal.toFund());

@@ -94,8 +94,8 @@ contract("Idea", async accounts => {
     // Submit a vote using all of the coins allocated to us to set the funds
     // rate to be 1 token of the jurisdiction token that expires in 2 days,
     // and that can be released once every 24 hours
-    let fundsExpiry = new Date();
-    fundsExpiry.setDate(fundsExpiry.getDate() + 2);
+    let fundsExpiry = new Date((await time.latest()) * 1000);
+    fundsExpiry.setDate(fundsExpiry.getDate() + 3);
 
     // Approve spending for the vote
     await juris.approve(prop.address, ROOT_IDEA.shares);
@@ -120,7 +120,7 @@ contract("Idea", async accounts => {
     const [spec, newIdea] = await withTestIdea();
     const prop = await withProp(juris, newIdea);
 
-    let fundsExpiry = new Date();
+    let fundsExpiry = new Date((await time.latest()) * 1000);
     fundsExpiry.setDate(fundsExpiry.getDate() + 3);
 
     await juris.approve(prop.address, ROOT_IDEA.shares);
@@ -142,7 +142,7 @@ contract("Idea", async accounts => {
     await time.increase(86400);
 
     // Any user should be able to finalize a proposal if the vote has ended
-    await juris.finalizeProp(prop.address);
+    await juris.finalizeProp(prop.address, { gasPrice: '1', gas: '6700000' });
 
     assert.equal((await juris.fundedIdeas.call(newIdea.address)).value, 1);
   });
