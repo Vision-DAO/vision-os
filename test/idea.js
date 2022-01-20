@@ -125,7 +125,7 @@ contract("Idea", async accounts => {
 
     await juris.approve(prop.address, ROOT_IDEA.shares);
 
-    prop.vote(
+    await prop.vote(
       ROOT_IDEA.shares,
       {
         token: juris.address,
@@ -142,7 +142,7 @@ contract("Idea", async accounts => {
     await time.increase(86400);
 
     // Any user should be able to finalize a proposal if the vote has ended
-    await juris.finalizeProp(prop.address, { gasPrice: '1', gas: '6700000' });
+    await juris.finalizeProp(prop.address);
 
     assert.equal((await juris.fundedIdeas.call(newIdea.address)).value, 1);
   });
