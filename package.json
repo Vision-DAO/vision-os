@@ -12,6 +12,7 @@
   },
   "devDependencies": {
     "@openzeppelin/test-helpers": "^0.5.15",
+    "@truffle/hdwallet-provider": "^2.0.1",
     "truffle": "^5.4.29",
     "web3": "^1.7.0"
   }
