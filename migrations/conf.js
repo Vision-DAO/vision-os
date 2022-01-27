@@ -2,8 +2,8 @@ const BigNumber = require("bignumber.js");
 
 /* Attributes of the root node in the idea tree used for deployment */
 module.exports = {
-  name: "CHID DAO",
-  ticker: "CHID",
+  name: "Test CHID DAO",
+  ticker: "TEST",
 
   // One per student, with 18 decimals of precision
   shares: new BigNumber("13e18"),

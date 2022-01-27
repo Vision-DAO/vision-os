@@ -23,6 +23,14 @@ const fs = require('fs');
 const mnemonic = fs.readFileSync(".secret").toString().trim();
 
 module.exports = {
+  plugins: ["truffle-plugin-verify"],
+
+  // NOTE: Your polygonscan API key should be in the .polysecret file
+  // TODO: Support a single env file that includes both secrets
+  api_keys: {
+    polygonscan: fs.readFileSync(".polysecret").toString().trim(),
+  },
+
   /**
    * Networks define how you connect to your ethereum client and let you set the
    * defaults web3 uses to send transactions. If you don't specify one truffle

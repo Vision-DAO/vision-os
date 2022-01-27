@@ -148,3 +148,6 @@ dist
 .pnp.*
 
 .secret
+.polysecret
+
+solc-input-contracts.json
