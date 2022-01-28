@@ -14,6 +14,8 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: 'yarn'
       - run: yarn global add ganache
+      - run: touch .secret
+      - run: touch .polysecret
       - run: yarn install
       - run: ganache &
       - run: yarn truffle test --network development
