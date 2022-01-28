@@ -51,12 +51,12 @@ contract Idea is ERC20 {
 		// Calculate the final funds rate before reverting all token votes
 		FundingRate memory finalRate = proposal.finalFundsRate();
 
-		// Refund all voters - this must be completed before the vote can be terminated
-		require(proposal.refund(), "Failed to refund all voters");
-
 		// Votes for the funds rate are weighted based on balances of this governing
 		// token
 		finalRate.value /= (finalRate.expiry - block.timestamp) / finalRate.intervalLength;
+
+		// Refund all voters - this must be completed before the vote can be terminated
+		require(proposal.refund(), "Failed to refund all voters");
 
 		// Record the new funds rate
 		address toFund = address (proposal.toFund());

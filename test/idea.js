@@ -94,7 +94,7 @@ contract("Idea", async accounts => {
     // rate to be 1 token of the jurisdiction token that expires in 2 days,
     // and that can be released once every 24 hours
     let fundsExpiry = new Date((await time.latest()) * 1000);
-    fundsExpiry.setDate(fundsExpiry.getDate() + 3);
+    fundsExpiry.setDate(fundsExpiry.getDate() + 2);
 
     // Approve spending for the vote
     await juris.approve(prop.address, ROOT_IDEA.shares);
@@ -120,7 +120,7 @@ contract("Idea", async accounts => {
     const prop = await withProp(juris, newIdea);
 
     let fundsExpiry = new Date((await time.latest()) * 1000);
-    fundsExpiry.setDate(fundsExpiry.getDate() + 3);
+    fundsExpiry.setDate(fundsExpiry.getDate() + 2);
 
     await juris.approve(prop.address, ROOT_IDEA.shares);
 
@@ -139,6 +139,7 @@ contract("Idea", async accounts => {
     // Simulate time passing to demonstrate that users' votes can be finalized:
     // advance time forward by one day
     await time.increase(86400);
+    await time.advanceBlock();
 
     // Any user should be able to finalize a proposal if the vote has ended
     await juris.finalizeProp(prop.address);
@@ -156,7 +157,7 @@ contract("Idea", async accounts => {
     const prop = await withProp(juris, newIdea);
 
     let fundsExpiry = new Date((await time.latest()) * 1000);
-    fundsExpiry.setDate(fundsExpiry.getDate() + 3);
+    fundsExpiry.setDate(fundsExpiry.getDate() + 2);
 
     await juris.approve(prop.address, ROOT_IDEA.shares);
 
@@ -175,6 +176,7 @@ contract("Idea", async accounts => {
     // Simulate time passing to demonstrate that users' votes can be finalized:
     // advance time forward by one day
     await time.increase(86400);
+    await time.advanceBlock();
 
     // Any user should be able to finalize a proposal if the vote has ended
     await juris.finalizeProp(prop.address);
