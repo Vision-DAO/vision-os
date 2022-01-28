@@ -5,7 +5,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [16.x]
+        node-version: [14.x]
     steps:
       - uses: actions/checkout@v2
       - name: Use Node.js ${{ matrix.node-version }}
@@ -13,9 +13,9 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'yarn'
-      - run: yarn global add ganache
+      - run: yarn global add @ganache/cli
       - run: touch .secret
       - run: touch .polysecret
       - run: yarn install
-      - run: ganache &
+      - run: ganache-cli &
       - run: yarn truffle test --network development
