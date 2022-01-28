@@ -4,6 +4,7 @@ import "./governance/Funding.sol";
 import "./governance/Prop.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 pragma solidity ^0.8.11;
 
@@ -22,12 +23,12 @@ contract Idea is ERC20 {
 	/* An instance of a child's funding has been released. */
 	event FundingDispersed(address idea, FundingRate rate);
 
-	modifier isChild {
-		FundingRate memory rate = fundedIdeas[msg.sender];
-		address thisAddr = address(this);
+	// Ensures that the given address is a funded child idea
+	modifier isChild(address child) {
+		FundingRate memory rate = fundedIdeas[child];
 
-		// The governing contract has to have funds left in the designated token to transfer to the child
-		require(rate.value > 0 && ((rate.token == address(0x00) && thisAddr.balance >= rate.value) || ((rate.kind == FundingType.MINT && rate.token == thisAddr) || IERC20 (rate.token).balanceOf(thisAddr) > rate.value)), "No funds to allocate");
+		// The specified contract must be a child that is funded by this governing contract
+		require(rate.value > 0, "Proposal doesn't allocate any funds");
 
 		_;
 	}
@@ -47,9 +48,14 @@ contract Idea is ERC20 {
 	function finalizeProp(Prop proposal) external {
 		require(block.timestamp >= proposal.expiresAt(), "Vote has not yet terminated.");
 
+		// Calculate the final funds rate before reverting all token votes
+		FundingRate memory finalRate = proposal.finalFundsRate();
+
+		// Refund all voters - this must be completed before the vote can be terminated
+		require(proposal.refund(), "Failed to refund all voters");
+
 		// Votes for the funds rate are weighted based on balances of this governing
 		// token
-		FundingRate memory finalRate = proposal.finalFundsRate();
 		finalRate.value /= (finalRate.expiry - block.timestamp) / finalRate.intervalLength;
 
 		// Record the new funds rate
@@ -63,31 +69,38 @@ contract Idea is ERC20 {
 	 * Disperses funding to the calling Idea, if it is a child in the
 	 * jurisdiction of the current token, and has funds to be allocated.
 	 */
-	function disperseFunding() external isChild {
-		FundingRate memory rate = fundedIdeas[msg.sender];
+	function disperseFunding(address idea) external isChild(idea) {
+		FundingRate memory rate = fundedIdeas[idea];
 
-		require(rate.expiry < block.timestamp, "Funding has expired");
+		require(rate.expiry > block.timestamp, "Funding has expired");
 		require(block.timestamp - rate.lastClaimed >= rate.intervalLength, "Claimed too recently");
 
-		fundedIdeas[msg.sender].lastClaimed = block.timestamp;
+		fundedIdeas[idea].lastClaimed = block.timestamp;
 
 		// The number of tokens to disperse
 		uint256 tokens = rate.value;
 
+		// The governing contract has to have funds left in the designated token to transfer to the child
 		// The idea can be rewarded in ETH or an ERC-20
-		if (fundedIdeas[msg.sender].token == address(0x00)) {
-			(bool sent, ) = payable(msg.sender).call{value: tokens}("");
+		address thisAddr = address(this);
+
+		if (fundedIdeas[idea].token == address(0x00)) {
+			require(thisAddr.balance >= rate.value, "Not enough ETH for designated funds");
+
+			(bool sent, ) = payable(idea).call{value: tokens}("");
 
 			require(sent, "Failed to disperse ETH rewards");
 		} else {
 			// If the reward is in our own token, mint it
-			if (rate.token == address(this) && rate.kind == FundingType.MINT) {
-				_mint(msg.sender, tokens);
+			if (rate.kind == FundingType.MINT) {
+				require(rate.token == thisAddr, "Cannot mint funds for a foreign token");
+
+				_mint(idea, tokens);
 			} else {
-				require(IERC20 (rate.token).transfer(msg.sender, tokens), "Failed to disperse ERC rewards");
+				require(IERC20 (rate.token).transfer(idea, tokens), "Failed to disperse ERC rewards");
 			}
 		}
 
-		emit FundingDispersed(msg.sender, rate);
+		emit FundingDispersed(idea, rate);
 	}
 }

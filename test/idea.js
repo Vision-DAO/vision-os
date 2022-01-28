@@ -12,8 +12,7 @@ const withBlankDAO = () => Idea.new(ROOT_IDEA.name, ROOT_IDEA.ticker, ROOT_IDEA.
 const withTestIdea = async () => {
   const token = {
     name: "new idea",
-    ticker: "NEW",
-    shares: new BigNumber("1e21"),
+    ticker: "NEW", shares: new BigNumber("1e21"),
     detailsIpfsID: "",
   };
 
@@ -145,5 +144,43 @@ contract("Idea", async accounts => {
     await juris.finalizeProp(prop.address);
 
     assert.equal((await juris.fundedIdeas.call(newIdea.address)).value, 1);
+
+    // The user should have received a refund with their number of votes (1)
+    assert.equal((await juris.balanceOf.call(accounts[0])).toString(), ROOT_IDEA.shares.toString());
+  });
+
+  // Funded ideas shuold be able to collect corresponding funds
+  it("should be able to be delegate funds to proposals", async () => {
+    const juris = await withBlankDAO();
+    const [_spec, newIdea] = await withTestIdea();
+    const prop = await withProp(juris, newIdea);
+
+    let fundsExpiry = new Date((await time.latest()) * 1000);
+    fundsExpiry.setDate(fundsExpiry.getDate() + 3);
+
+    await juris.approve(prop.address, ROOT_IDEA.shares);
+
+    await prop.vote(
+      ROOT_IDEA.shares,
+      {
+        token: juris.address,
+        value: 1,
+        intervalLength: 86400,
+        expiry: Math.round(fundsExpiry.getTime() / 1000),
+        lastClaimed: 0,
+        kind: 0
+      }
+    );
+
+    // Simulate time passing to demonstrate that users' votes can be finalized:
+    // advance time forward by one day
+    await time.increase(86400);
+
+    // Any user should be able to finalize a proposal if the vote has ended
+    await juris.finalizeProp(prop.address);
+
+    // Any user should be able to request that an idea be funded
+    await juris.disperseFunding(newIdea.address);
+    assert.equal((await juris.balanceOf.call(newIdea.address)).toString(), "1");
   });
 });

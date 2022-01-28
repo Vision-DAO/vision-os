@@ -19,6 +19,12 @@ contract Prop {
 	/* The weighted average rate so far */
 	FundingRate public rate;
 
+	/* Users that voted on the proposal - should receive a refund after */
+	mapping (address => uint256) private refunds;
+
+	uint256 private nVoters;
+	address[] public voters;
+
 	/* The number of days that the vote lasts */
 	uint256 public expiresAt;
 
@@ -51,6 +57,7 @@ contract Prop {
 	 * the given vote details.
 	 */
 	function vote(uint256 _votes, FundingRate calldata _rate) external {
+		require(_votes > 0, "No votes to delegate");
 		require(governed.transferFrom(msg.sender, address(this), _votes), "Failed to delegate votes");
 
 		// Votes have to be weighted by their balance of the governing token
@@ -59,6 +66,34 @@ contract Prop {
 		rate.value += weight * _rate.value;
 		rate.intervalLength += weight * _rate.intervalLength;
 		rate.expiry += weight * _rate.expiry;
+
+		// Voters should be able to get their tokens back after the vote is over
+		// Register the voter for a refund when the proposal expires
+		if (refunds[msg.sender] == 0) {
+			voters.push(msg.sender);
+			nVoters++;
+		}
+
+		refunds[msg.sender] += _votes;
+	}
+
+	/**
+	 * Refunds token votes to all voters, if the msg.sender is the governing
+	 * contract.
+	 */
+	function refund() external returns (bool) {
+		// Not any user can call refund
+		require(msg.sender == address(governed), "Refunder is not the governor");
+
+		// Refund all voters
+		for (uint i = 0; i < nVoters; i++) {
+			address voter = address(voters[i]);
+
+			require(governed.transfer(voter, refunds[voter]), "Failed to refund all voters");
+		}
+
+		// All voters were successfully refunded
+		return true;
 	}
 
 	/**
