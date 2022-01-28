@@ -1,0 +1,8 @@
+language: node_js
+node_js:
+  - 7
+before_script:
+  - yarn global add ganache
+  - ganache &
+script:
+  - yarn truffle test --network development
