@@ -6,6 +6,14 @@ import "./Funding.sol";
 pragma solidity ^0.8.11;
 
 /**
+ * Details of individual votes must be stored to allow "undo" functionality.
+ */
+struct Vote {
+	FundingRate rate;
+	uint256 votes;
+}
+
+/**
  * Represents an ongoing vote to implement a new funding rate for an idea.
  * Votes are weighted based on balances held.
  */
@@ -14,13 +22,13 @@ contract Prop {
 	Idea public governed;
 
 	/* The idea being funded by the prop */
-	Idea public toFund;
+	address public toFund;
 
 	/* The weighted average rate so far */
 	FundingRate public rate;
 
 	/* Users that voted on the proposal - should receive a refund after */
-	mapping (address => uint256) private refunds;
+	mapping (address => Vote) private refunds;
 
 	uint256 private nVoters;
 	address[] public voters;
@@ -29,7 +37,7 @@ contract Prop {
 	uint256 public expiresAt;
 
 	/* A new proposal was created, the details of which are on IPFS */
-	event NewProposal(Idea governed, Idea toFund, string propIpfsHash, uint256 expiresAt);
+	event NewProposal(Idea governed, address toFund, string propIpfsHash, uint256 expiresAt);
 
 	/**
 	 * Creates a new proposal, whose details should be on IPFS already, and that
@@ -43,7 +51,7 @@ contract Prop {
 	 * on IPFS
 	 * @param _expiry - The number of days that the vote can last for
 	 */
-	constructor(Idea _jurisdiction, Idea _toFund, address _token, FundingType _fundingType, string memory _proposalIpfsHash, uint256 _expiry) {
+	constructor(Idea _jurisdiction, address _toFund, address _token, FundingType _fundingType, string memory _proposalIpfsHash, uint256 _expiry) {
 		governed = _jurisdiction;
 		toFund = _toFund;
 		rate = FundingRate(_token, 0, 0, 0, 0, _fundingType);
@@ -69,19 +77,51 @@ contract Prop {
 
 		// Voters should be able to get their tokens back after the vote is over
 		// Register the voter for a refund when the proposal expires
-		if (refunds[msg.sender] == 0) {
+		if (refunds[msg.sender].votes == 0) {
 			voters.push(msg.sender);
 			nVoters++;
 		}
 
-		refunds[msg.sender] += _votes;
+		refunds[msg.sender] = Vote(rate, _votes);
+	}
+
+	/**
+	 * Deallocates all votes from the user.
+	 */
+	function refundVotes() external {
+		require(refunds[msg.sender].votes > 0, "No votes left to refund.");
+
+		uint256 w = refunds[msg.sender].votes;
+		FundingRate memory r = refunds[msg.sender].rate;
+
+		// Refund the user
+		require(governed.transfer(msg.sender, w), "Failed to refund votes");
+
+		// Subtract their weighted votes from the total
+		rate.value -= w * r.value;
+		rate.intervalLength -= w * r.intervalLength;
+		rate.expiry -= w * r.expiry;
+
+		// Remove the user's refund entry
+		delete refunds[msg.sender];
+
+		for (uint256 i = 0; i < nVoters; i++) {
+			if (voters[i] == msg.sender) {
+				voters[i] = voters[nVoters - 1];
+				voters.pop();
+
+				break;
+			}
+		}
+
+		nVoters--;
 	}
 
 	/**
 	 * Refunds token votes to all voters, if the msg.sender is the governing
 	 * contract.
 	 */
-	function refund() external returns (bool) {
+	function refundAll() external returns (bool) {
 		// Not any user can call refund
 		require(msg.sender == address(governed), "Refunder is not the governor");
 
@@ -89,7 +129,7 @@ contract Prop {
 		for (uint i = 0; i < nVoters; i++) {
 			address voter = address(voters[i]);
 
-			require(governed.transfer(voter, refunds[voter]), "Failed to refund all voters");
+			require(governed.transfer(voter, refunds[voter].votes), "Failed to refund all voters");
 		}
 
 		// All voters were successfully refunded

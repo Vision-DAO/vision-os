@@ -50,6 +50,7 @@ contract Idea is ERC20 {
 	 */
 	function finalizeProp(Prop proposal) external {
 		require(block.timestamp >= proposal.expiresAt(), "Vote has not yet terminated.");
+		require(balanceOf(address(proposal)) * 100 / totalSupply() > 50, "Proposal rejected: failed to obtain majority.");
 
 		// Calculate the final funds rate before reverting all token votes
 		FundingRate memory finalRate = proposal.finalFundsRate();
@@ -59,10 +60,10 @@ contract Idea is ERC20 {
 		finalRate.value /= (5 + (finalRate.expiry - block.timestamp) * 10 / finalRate.intervalLength) / 10;
 
 		// Refund all voters - this must be completed before the vote can be terminated
-		require(proposal.refund(), "Failed to refund all voters");
+		require(proposal.refundAll(), "Failed to refund all voters");
 
 		// Record the new funds rate
-		address toFund = address (proposal.toFund());
+		address toFund = proposal.toFund();
 
 		// Add the funded idea to the list of children if it hasn't been seen before, and
 		// remove the child once its funding is nonexistent
@@ -73,6 +74,8 @@ contract Idea is ERC20 {
 				if (children[i] == toFund) {
 					children[i] = children[children.length - 1];
 					children.pop();
+
+					break;
 				}
 			}
 		}
