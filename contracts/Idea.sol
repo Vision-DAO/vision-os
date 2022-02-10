@@ -14,6 +14,9 @@ contract Idea is ERC20 {
 	/* Funding rates for derivative ideas */
 	mapping (address => FundingRate) public fundedIdeas;
 
+	/* Ideas connected to the current idea */
+	address[] public children;
+
 	/* The idea, and its datum have been committed to the blockchain. */
 	event IdeaRecorded(string ipfsAddr);
 
@@ -53,13 +56,26 @@ contract Idea is ERC20 {
 
 		// Votes for the funds rate are weighted based on balances of this governing
 		// token
-		finalRate.value /= (finalRate.expiry - block.timestamp) / finalRate.intervalLength;
+		finalRate.value /= (5 + (finalRate.expiry - block.timestamp) * 10 / finalRate.intervalLength) / 10;
 
 		// Refund all voters - this must be completed before the vote can be terminated
 		require(proposal.refund(), "Failed to refund all voters");
 
 		// Record the new funds rate
 		address toFund = address (proposal.toFund());
+
+		// Add the funded idea to the list of children if it hasn't been seen before, and
+		// remove the child once its funding is nonexistent
+		if (fundedIdeas[toFund].value == 0) {
+			children.push(toFund);
+		} else if (finalRate.value == 0) {
+			for (uint256 i = 0; i < children.length; i++) {
+				if (children[i] == toFund) {
+					children[i] = children[children.length - 1];
+					children.pop();
+				}
+			}
+		}
 
 		fundedIdeas[toFund] = finalRate;
 		emit IdeaFunded(toFund, finalRate);
