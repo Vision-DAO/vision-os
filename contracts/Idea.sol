@@ -17,6 +17,9 @@ contract Idea is ERC20 {
 	/* Ideas connected to the current idea */
 	address[] public children;
 
+	/* The location of the idea on IPFS */
+	string public ipfsAddr;
+
 	/* The idea, and its datum have been committed to the blockchain. */
 	event IdeaRecorded(string ipfsAddr);
 
@@ -41,6 +44,7 @@ contract Idea is ERC20 {
 	 */
 	constructor(string memory ideaName, string memory ideaTicker, uint256 ideaShares, string memory datumIpfsHash) ERC20(ideaName, ideaTicker) {
 		_mint(msg.sender, ideaShares);
+		ipfsAddr = datumIpfsHash;
 
 		emit IdeaRecorded(datumIpfsHash);
 	}
@@ -121,5 +125,12 @@ contract Idea is ERC20 {
 		}
 
 		emit FundingDispersed(idea, rate);
+	}
+
+	/**
+	 * Gets the number of children funded by the idea.
+	 */
+	function numChildren() external view returns (uint256) {
+		return children.length;
 	}
 }

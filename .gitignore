@@ -9,6 +9,8 @@ shippable
 # Dependency directory
 node_modules
 
+**/node_modules
+
 # Generated files
 config/development/contracts.json
 config/development/*.sol.js

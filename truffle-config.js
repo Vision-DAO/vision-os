@@ -59,6 +59,8 @@ module.exports = {
       confirmations: 2,
       timeoutBlocks: 200,
       skipDryRun: true,
+			gas: 20000000,
+			gasPrice: 35000000000,
     },
     // Another network with more advanced options...
     // advanced: {
@@ -100,7 +102,7 @@ module.exports = {
       settings: {          // See the solidity docs for advice about optimization and evmVersion
         optimizer: {
           enabled: true,
-          runs: 200
+          runs: 10000
         },
         evmVersion: "byzantium"
       }

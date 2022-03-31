@@ -9,13 +9,17 @@
   "private": false,
   "dependencies": {
     "@metamask/detect-provider": "^1.2.0",
-    "@openzeppelin/contracts": "^4.4.2"
+    "@openzeppelin/contracts": "^4.4.2",
+    "@truffle/contract": "^4.4.9",
+    "ipfs": "^0.62.1",
+    "ipfs-core-types": "^0.10.1",
+    "ipfs-http-client": "^56.0.1"
   },
   "devDependencies": {
     "@openzeppelin/test-helpers": "^0.5.15",
     "@truffle/hdwallet-provider": "^2.0.1",
     "ganache": "^7.0.1",
-    "truffle": "^5.4.29",
+    "truffle": "^5.4.33",
     "truffle-plugin-verify": "^0.5.21",
     "web3": "^1.7.0"
   }
