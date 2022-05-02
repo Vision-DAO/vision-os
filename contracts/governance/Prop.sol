@@ -28,9 +28,9 @@ contract Prop {
 	FundingRate public rate;
 
 	/* Users that voted on the proposal - should receive a refund after */
-	mapping (address => Vote) private refunds;
+	mapping (address => Vote) public refunds;
 
-	uint256 private nVoters;
+	uint256 public nVoters;
 	address[] public voters;
 
 	/* The number of days that the vote lasts */
