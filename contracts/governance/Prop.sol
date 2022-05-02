@@ -30,6 +30,9 @@ contract Prop {
 	/* Users that voted on the proposal - should receive a refund after */
 	mapping (address => Vote) public refunds;
 
+	/* Where metadata about the proposal is stored */
+	string public ipfsAddr;
+
 	uint256 public nVoters;
 	address[] public voters;
 
@@ -56,6 +59,7 @@ contract Prop {
 		toFund = _toFund;
 		rate = FundingRate(_token, 0, 0, 0, 0, _fundingType);
 		expiresAt = block.timestamp + _expiry * 1 seconds;
+		ipfsAddr = _proposalIpfsHash;
 
 		emit NewProposal(_jurisdiction, _toFund, _proposalIpfsHash, expiresAt);
 	}
