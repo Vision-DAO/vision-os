@@ -34,6 +34,10 @@ contract Prop {
 	string public ipfsAddr;
 
 	uint256 public nVoters;
+
+	/* The title of the proposal */
+	string title;
+
 	address[] public voters;
 
 	/* The number of seconds that the vote lasts */
@@ -46,6 +50,7 @@ contract Prop {
 	 * Creates a new proposal, whose details should be on IPFS already, and that
 	 * expires at the indicated time.
 	 *
+	 * @param _propName - The title of the proposal
 	 * @param _jurisdiction - The token measuring votes
 	 * @param _toFund - The idea whose funding is being voted on
 	 * @param _token - The token being used to fund the idea
@@ -54,7 +59,8 @@ contract Prop {
 	 * on IPFS
 	 * @param _expiry - The number of seconds that the vote can last for
 	 */
-	constructor(Idea _jurisdiction, address _toFund, address _token, FundingType _fundingType, string memory _proposalIpfsHash, uint256 _expiry) {
+	constructor(string memory _propName, Idea _jurisdiction, address _toFund, address _token, FundingType _fundingType, string memory _proposalIpfsHash, uint256 _expiry) {
+		title = _propName;
 		governed = _jurisdiction;
 		toFund = _toFund;
 		rate = FundingRate(_token, 0, 0, 0, 0, _fundingType);
