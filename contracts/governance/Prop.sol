@@ -33,7 +33,7 @@ contract Prop {
 	uint256 public nVoters;
 	address[] public voters;
 
-	/* The number of days that the vote lasts */
+	/* The number of seconds that the vote lasts */
 	uint256 public expiresAt;
 
 	/* A new proposal was created, the details of which are on IPFS */
@@ -49,13 +49,13 @@ contract Prop {
 	 * @param _fundingType - How the reward should be fundraised (i.e., minting or from the treasury)
 	 * @param _proposalIpfsHash - The details of the proposal, in any form, available
 	 * on IPFS
-	 * @param _expiry - The number of days that the vote can last for
+	 * @param _expiry - The number of seconds that the vote can last for
 	 */
 	constructor(Idea _jurisdiction, address _toFund, address _token, FundingType _fundingType, string memory _proposalIpfsHash, uint256 _expiry) {
 		governed = _jurisdiction;
 		toFund = _toFund;
 		rate = FundingRate(_token, 0, 0, 0, 0, _fundingType);
-		expiresAt = block.timestamp + _expiry * 1 days;
+		expiresAt = block.timestamp + _expiry * 1 seconds;
 
 		emit NewProposal(_jurisdiction, _toFund, _proposalIpfsHash, expiresAt);
 	}
