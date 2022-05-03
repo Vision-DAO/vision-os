@@ -36,7 +36,7 @@ contract Prop {
 	uint256 public nVoters;
 
 	/* The title of the proposal */
-	string title;
+	string public title;
 
 	address[] public voters;
 
