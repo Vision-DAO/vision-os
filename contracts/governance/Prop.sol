@@ -92,7 +92,7 @@ contract Prop {
 			nVoters++;
 		}
 
-		refunds[msg.sender] = Vote(rate, _votes);
+		refunds[msg.sender] = Vote(_rate, _votes);
 	}
 
 	/**
