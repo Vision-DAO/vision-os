@@ -54,13 +54,15 @@ contract Idea is ERC20 {
 	 */
 	function finalizeProp(Prop proposal) external {
 		require(block.timestamp >= proposal.expiresAt(), "Vote has not yet terminated.");
-		require(balanceOf(address(proposal)) * 100 / totalSupply() > 50, "Proposal rejected: failed to obtain majority.");
 
 		// Calculate the final funds rate before reverting all token votes
 		FundingRate memory finalRate = proposal.finalFundsRate();
 
 		// Refund all voters - this must be completed before the vote can be terminated
 		require(proposal.refundAll(), "Failed to refund all voters");
+
+		// The new funds rate must not be recorded unless the proposal passed
+		require(balanceOf(address(proposal)) * 100 / totalSupply() > 50, "Proposal rejected: failed to obtain majority.");
 
 		// Record the new funds rate
 		address toFund = proposal.toFund();
