@@ -26,6 +26,9 @@ contract Idea is ERC20 {
 	/* A child idea has had a new funds rate finalized. */
 	event IdeaFunded(address idea, FundingRate rate);
 
+	/* A proposal failed to meet a 51% majority */
+	event ProposalRejected(address prop);
+
 	/* An instance of a child's funding has been released. */
 	event FundingDispersed(address idea, FundingRate rate);
 
@@ -62,7 +65,11 @@ contract Idea is ERC20 {
 		require(proposal.refundAll(), "Failed to refund all voters");
 
 		// The new funds rate must not be recorded unless the proposal passed
-		require(balanceOf(address(proposal)) * 100 / totalSupply() > 50, "Proposal rejected: failed to obtain majority.");
+		if (balanceOf(address(proposal)) * 100 / totalSupply() <= 50) {
+			emit ProposalRejected(address(proposal));
+
+			return;
+		}
 
 		// Record the new funds rate
 		address toFund = proposal.toFund();
