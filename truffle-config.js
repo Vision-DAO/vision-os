@@ -23,7 +23,7 @@ const fs = require("fs");
 const mnemonic = fs.readFileSync(".secret").toString().trim();
 
 module.exports = {
-	plugins: ["truffle-plugin-verify"],
+	plugins: ["truffle-plugin-verify", "@chainsafe/truffle-plugin-abigen"],
 
 	// NOTE: Your polygonscan API key should be in the .polysecret file
 	// TODO: Support a single env file that includes both secrets
