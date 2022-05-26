@@ -60,12 +60,13 @@ contract Idea is ERC20 {
 
 		// Calculate the final funds rate before reverting all token votes
 		FundingRate memory finalRate = proposal.finalFundsRate();
+		uint256 nVotes = balanceOf(address(proposal));
 
 		// Refund all voters - this must be completed before the vote can be terminated
 		require(proposal.refundAll(), "Failed to refund all voters");
 
 		// The new funds rate must not be recorded unless the proposal passed
-		if (balanceOf(address(proposal)) * 100 / totalSupply() <= 50) {
+		if (nVotes * 100 / totalSupply() <= 50) {
 			emit ProposalRejected(address(proposal));
 
 			return;
