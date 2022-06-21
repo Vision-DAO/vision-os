@@ -58,11 +58,8 @@ contract Idea is ERC20 {
 	function finalizeProp(Prop proposal) external {
 		require(block.timestamp >= proposal.expiresAt(), "Vote has not yet terminated.");
 
-		// Calculate the final funds rate before reverting all token votes
-		FundingRate memory finalRate = proposal.finalFundsRate();
-		uint256 nVotes = balanceOf(address(proposal));
-
 		// Refund all voters - this must be completed before the vote can be terminated
+		uint256 nVotes = balanceOf(address(proposal));
 		require(proposal.refundAll(), "Failed to refund all voters");
 
 		// The new funds rate must not be recorded unless the proposal passed
@@ -72,26 +69,35 @@ contract Idea is ERC20 {
 			return;
 		}
 
-		// Record the new funds rate
-		address toFund = proposal.toFund();
+		// Record the new funds rate if affected
+		if (proposal.diff[PropTarget.FUNDING]) {
+			FundingRate memory finalRate = proposal.rate();
+			address toFund = proposal.toFund();
 
-		// Add the funded idea to the list of children if it hasn't been seen before, and
-		// remove the child once its funding is nonexistent
-		if (fundedIdeas[toFund].value == 0) {
-			children.push(toFund);
-		} else if (finalRate.value == 0) {
-			for (uint256 i = 0; i < children.length; i++) {
-				if (children[i] == toFund) {
-					children[i] = children[children.length - 1];
-					children.pop();
+			// Add the funded idea to the list of children if it hasn't been seen before, and
+			// remove the child once its funding is nonexistent
+			if (fundedIdeas[toFund].value == 0) {
+				children.push(toFund);
+			} else if (finalRate.value == 0) {
+				for (uint256 i = 0; i < children.length; i++) {
+					if (children[i] == toFund) {
+						children[i] = children[children.length - 1];
+						children.pop();
 
-					break;
+						break;
+					}
 				}
 			}
+
+			fundedIdeas[toFund] = finalRate;
+			emit IdeaFunded(toFund, finalRate);
 		}
 
-		fundedIdeas[toFund] = finalRate;
-		emit IdeaFunded(toFund, finalRate);
+		// Record the new IPFS metadata hash if affected
+		if (proposal.diff[PropTarget.PAYLOAD]) {
+			ipfsAddr = proposal.payload;
+			emit IdeaRecorded(proposal.payload);
+		}
 	}
 
 	/**

@@ -6,11 +6,11 @@ import "./Funding.sol";
 pragma solidity ^0.8.11;
 
 /**
- * Details of individual votes must be stored to allow "undo" functionality.
+ * The DAO attributes that a proposal is capable of targeting.
  */
-struct Vote {
-	FundingRate rate;
-	uint256 votes;
+enum PropTarget {
+	PAYLOAD,
+	FUNDING
 }
 
 /**
@@ -24,27 +24,35 @@ contract Prop {
 	/* The idea being funded by the prop */
 	address public toFund;
 
-	/* The weighted average rate so far */
+	/* The proposed funding rate for the specified address */
 	FundingRate public rate;
 
+	/* The proposed new metadata address */
+	string public payload;
+
+	/* Whether the Idea's funding rate, payload, or both, were changed */
+	mapping (PropTarget => bool) public diff;
+
 	/* Users that voted on the proposal - should receive a refund after */
-	mapping (address => Vote) public refunds;
+	mapping (address => uint256) public refunds;
 
 	/* Where metadata about the proposal is stored */
 	string public ipfsAddr;
 
+	/* The names of all voters eligible for refunds */
 	uint256 public nVoters;
-
-	/* The title of the proposal */
-	string public title;
-
 	address[] public voters;
 
-	/* The number of seconds that the vote lasts */
+	/* The UNIX timestamp that the proposal shall last until */
 	uint256 public expiresAt;
 
 	/* A new proposal was created, the details of which are on IPFS */
 	event NewProposal(Idea governed, address toFund, string propIpfsHash, uint256 expiresAt);
+
+	modifier isActive {
+		require(block.timestamp < expiresAt, "The proposal is no longer active");
+		_;
+	}
 
 	/**
 	 * Creates a new proposal, whose details should be on IPFS already, and that
@@ -57,33 +65,35 @@ contract Prop {
 	 * @param _fundingType - How the reward should be fundraised (i.e., minting or from the treasury)
 	 * @param _proposalIpfsHash - The details of the proposal, in any form, available
 	 * on IPFS
-	 * @param _expiry - The number of seconds that the vote can last for
+	 * @param _metaPayload - The IPFS address of the new metadata to use for
+	 * the governing contract
+	 * @param _targetAttrs - Whether the metadata, funding rate, or both, were
+	 * changed for the governing DAO
+	 * @param _expiry - The UNIX timestamp of the expiration date
 	 */
-	constructor(string memory _propName, Idea _jurisdiction, address _toFund, address _token, FundingType _fundingType, string memory _proposalIpfsHash, uint256 _expiry) {
-		title = _propName;
-		governed = _jurisdiction;
-		toFund = _toFund;
-		rate = FundingRate(_token, 0, 0, 0, 0, _fundingType);
-		expiresAt = block.timestamp + _expiry * 1 seconds;
+	constructor(string memory _proposalIpfsHash, Idea _jurisdiction, address _toFund, FundingRate _fundingRate, string memory _metaPayload, mapping (PropTarget => bool) _targetAttrs, uint256 _expiry) {
 		ipfsAddr = _proposalIpfsHash;
+		governed = _jurisdiction;
+		payload = _metaPayload;
+		newIpfsAddr = _toFund;
+		rate = _fundingRate;
+		expiresAt = _expiry;
 
 		emit NewProposal(_jurisdiction, _toFund, _proposalIpfsHash, expiresAt);
 	}
 
 	/**
-	 * Delegates the specified number of votes (tokens) to this proposal with
-	 * the given vote details.
+	 * Delegates the specified number of votes (tokens) to this proposal with an
+	 * affirmative vote.
+	 *
+	 * pre: The voting period has not passed
+	 * pre: The user has a balance greater or equal to the number of votes they
+	 * want to cast
+	 * pre: The user is casting a non-zero number of votes
 	 */
-	function vote(uint256 _votes, FundingRate calldata _rate) external {
+	function vote(uint256 _votes) external isActive {
 		require(_votes > 0, "No votes to delegate");
 		require(governed.transferFrom(msg.sender, address(this), _votes), "Failed to delegate votes");
-
-		// Votes have to be weighted by their balance of the governing token
-		uint256 weight = _votes;
-
-		rate.value += weight * _rate.value;
-		rate.intervalLength += weight * _rate.intervalLength;
-		rate.expiry += weight * _rate.expiry;
 
 		// Voters should be able to get their tokens back after the vote is over
 		// Register the voter for a refund when the proposal expires
@@ -92,36 +102,26 @@ contract Prop {
 			nVoters++;
 		}
 
-		refunds[msg.sender] = Vote(_rate, _votes);
+		refunds[msg.sender] += _votes;
 	}
 
 	/**
 	 * Deallocates all votes from the user.
 	 */
 	function refundVotes() external {
-		require(refunds[msg.sender].votes > 0, "No votes left to refund.");
+		require(refunds[msg.sender].votes > 0, "No votes left to refund");
 
-		uint256 w = refunds[msg.sender].votes;
-		FundingRate memory r = refunds[msg.sender].rate;
+		uint256 n = refunds[msg.sender];
 
 		// Refund the user
-		require(governed.transfer(msg.sender, w), "Failed to refund votes");
-
-		// Subtract their weighted votes from the total
-		rate.value -= w * r.value;
-		rate.intervalLength -= w * r.intervalLength;
-		rate.expiry -= w * r.expiry;
+		require(governed.transfer(msg.sender, n), "Failed to refund votes");
 
 		// Remove the user's refund entry
 		delete refunds[msg.sender];
 
-		for (uint256 i = 0; i < nVoters; i++) {
-			if (voters[i] == msg.sender) {
-				voters[i] = voters[nVoters - 1];
-				voters.pop();
-
-				break;
-			}
+		if (nVoters > 1) {
+			voters[i] = voters[nVoters - 1];
+			delete voters[nVoters - 1];
 		}
 
 		nVoters--;
@@ -144,22 +144,5 @@ contract Prop {
 
 		// All voters were successfully refunded
 		return true;
-	}
-
-	/**
-	 * Calculates the weighted average of the funds rate varaibles, returning
-	 * the resultant funds rate, without an updated finalization date.
-	 */
-	function finalFundsRate() view external returns (FundingRate memory) {
-		// The total number of votes is the total number of tokens delegated to this account
-		uint256 totalVotes = governed.balanceOf(address(this));
-
-		FundingRate memory finalRate = rate;
-
-		finalRate.value /= totalVotes;
-		finalRate.intervalLength /= totalVotes;
-		finalRate.expiry /= totalVotes;
-
-		return finalRate;
 	}
 }
