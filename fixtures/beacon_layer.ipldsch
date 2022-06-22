@@ -1,0 +1,13 @@
+## Payload is a list of WASM modules, which are each compressed WASM binaries
+type IdeaMetadata struct {
+	title String
+	description String
+	payload [&Bytes]
+}
+
+## Payload metadata of a proposal is stored in an adjacent field of a Proposal
+## contract, on-chain
+type ProposalMetadata struct {
+	title String
+	description String
+}
