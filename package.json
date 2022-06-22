@@ -1,27 +1,16 @@
 {
-  "name": "value-tree",
+  "name": "beacon-dao",
   "version": "0.1.0",
-  "description": "Implementation of a value tree through Ethereum smart contracts.",
+  "description": "Smart contracts implementing the Vision Beacon DAO.",
   "main": "index.js",
-  "repository": "https://github.com/dowlandaiello/value-tree",
-  "author": "Dowland Aiello",
+  "repository": "git@github.com:vision-dao/value-tree.git",
+  "author": "Dowland Aiello <dowlandaiello@gmail.com>",
   "license": "MIT",
-  "private": false,
-  "dependencies": {
-    "@metamask/detect-provider": "^1.2.0",
-    "@openzeppelin/contracts": "^4.4.2",
-    "@truffle/contract": "^4.4.9",
-    "ipfs": "^0.62.1",
-    "ipfs-core-types": "^0.10.1",
-    "ipfs-http-client": "^56.0.1"
-  },
+  "private": true,
   "devDependencies": {
-    "@chainsafe/truffle-plugin-abigen": "^0.0.2",
-    "@openzeppelin/test-helpers": "^0.5.15",
-    "@truffle/hdwallet-provider": "^2.0.1",
-    "ganache": "^7.0.1",
-    "truffle": "^5.4.33",
-    "truffle-plugin-verify": "^0.5.21",
-    "web3": "^1.7.0"
+    "hardhat": "^2.9.9"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.6.0"
   }
 }

@@ -1,148 +1,133 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.0;
 
-import "./governance/Funding.sol";
-import "./governance/Prop.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/utils/Strings.sol";
+import "../node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "./Prop.sol";
 
-pragma solidity ^0.8.11;
-
-/* Represents the governance contract / semi-fungible NFT of an idea in the
- * value tree. */
+/**
+ * A contract that implements a DAO for establishing consensus about the state
+ * of associated metadata, as defined in the Vision V2 spec.
+ */
 contract Idea is ERC20 {
-	/* Funding rates for derivative ideas */
-	mapping (address => FundingRate) public fundedIdeas;
-
-	/* Ideas connected to the current idea */
-	address[] public children;
-
-	/* The location of the idea on IPFS */
+	/* The CID of the Idea's metadata on IPFS, as defined in the V2 spec. */
 	string public ipfsAddr;
 
-	/* The idea, and its datum have been committed to the blockchain. */
-	event IdeaRecorded(string ipfsAddr);
+	/* Existing votes delegated by a user for the purpose of resizing their
+	 * vote upon a decrease in their balance of the Idea token. */
+	mapping (address => CommitmentMap) commitments;
 
-	/* A child idea has had a new funds rate finalized. */
-	event IdeaFunded(address idea, FundingRate rate);
+	/* Indicates that a proposal was attempted to be finalized, but failed to
+	 * garner the necessary >50% majority. */
+	event ProposalRejected(Proposal proposal);
 
-	/* A proposal failed to meet a 51% majority */
-	event ProposalRejected(address prop);
+	/* Indicates that a proposal was executed. */
+	event ProposalAccepted(Proposal proposal, string oldPayload, string newPayload);
 
-	/* An instance of a child's funding has been released. */
-	event FundingDispersed(address idea, FundingRate rate);
+	/**
+	 * Creates a new Idea DAO, with a corresponding ERC-20 token of name _name,
+	 * symbol _symbol, and _supply tokens allocated to the sender of the
+	 * message. Stores the given associated metadata in storage.
+	 *
+	 * @param _name - The name of the ERC20 governance token for the Idea
+	 * @param _symbol - The currency symbol of the ERC20 governance token for
+	 *  the Idea
+	 * @param _supply - The number of tokens to create and allocate to the
+	 *  sender of the message
+	 * @param _ipfsAddr - The IPFS CID of metadata associated with the Idea to
+	 *  store under the contract's ipfsAddr field
+	 */
+	constructor(string memory _name, string memory _symbol, uint256 _supply, string memory _ipfsAddr) ERC20(_name, _symbol) {
+		ipfsAddr = _ipfsAddr;
 
-	// Ensures that the given address is a funded child idea
-	modifier isChild(address child) {
-		FundingRate memory rate = fundedIdeas[child];
-
-		// The specified contract must be a child that is funded by this governing contract
-		require(rate.value > 0, "Proposal doesn't allocate any funds");
-
-		_;
+		// Allocate specified tokens to author
+		_mint(msg.sender, _supply);
 	}
 
 	/**
-	 * Creates a new idea from the given datum stored on IPFS, and idea token attributes.
+	 * Occurs on every transfer of a token. Detects any actives votes the user
+	 * has registered that are now invalid because the user's balance
+	 * decreased, or that can be pruned from storage because the voting period
+	 * has passed.
 	 */
-	constructor(string memory ideaName, string memory ideaTicker, uint256 ideaShares, string memory datumIpfsHash) ERC20(ideaName, ideaTicker) {
-		_mint(msg.sender, ideaShares);
-		ipfsAddr = datumIpfsHash;
-
-		emit IdeaRecorded(datumIpfsHash);
-	}
-
-	/**
-	 * Finalizes the given proposition if it has past its expiry date.
-	 */
-	function finalizeProp(Prop proposal) external {
-		require(block.timestamp >= proposal.expiresAt(), "Vote has not yet terminated.");
-
-		// Refund all voters - this must be completed before the vote can be terminated
-		uint256 nVotes = balanceOf(address(proposal));
-		require(proposal.refundAll(), "Failed to refund all voters");
-
-		// The new funds rate must not be recorded unless the proposal passed
-		if (nVotes * 100 / totalSupply() <= 50) {
-			emit ProposalRejected(address(proposal));
-
+	function _afterTokenTransfer(address from, address, uint256) internal override {
+		if (commitments[from].nCommitments == 0)
 			return;
-		}
 
-		// Record the new funds rate if affected
-		if (proposal.diff[PropTarget.FUNDING]) {
-			FundingRate memory finalRate = proposal.rate();
-			address toFund = proposal.toFund();
+		// Clear out any zombie commitments, and resolve any conflicts
+		CommitmentMap storage commits = commitments[from];
+		uint256 n = commits.nCommitments;
 
-			// Add the funded idea to the list of children if it hasn't been seen before, and
-			// remove the child once its funding is nonexistent
-			if (fundedIdeas[toFund].value == 0) {
-				children.push(toFund);
-			} else if (finalRate.value == 0) {
-				for (uint256 i = 0; i < children.length; i++) {
-					if (children[i] == toFund) {
-						children[i] = children[children.length - 1];
-						children.pop();
+		for (uint256 i = 0; i < n;) {
+			Proposal committee = commits.committed[i];
+			Commitment storage commit = commits.commitments[committee];
 
-						break;
-					}
-				}
+			if (commit.weight == 0 || (block.timestamp > committee.expiry() && committee.expiry() != 0)) {
+				// Zombie commitment. Clear out
+				n--;
+
+				commit.weight = 0;
+				commits.committed[i] = commits.committed[n - 1];
+				commits.committed.pop();
+
+				commits.nCommitments--;
+			} else if (commits.commitments[committee].weight > balanceOf(from)) {
+				// The user's vote is no longer valid because their balance is less
+				// than the number of votes they committed. Set the user's new
+				// vote to the most they can pay
+				commitVotes(committee, from, Commitment(committee, balanceOf(from), VoteKind.AFFIRMATIVE));
 			}
-
-			fundedIdeas[toFund] = finalRate;
-			emit IdeaFunded(toFund, finalRate);
-		}
-
-		// Record the new IPFS metadata hash if affected
-		if (proposal.diff[PropTarget.PAYLOAD]) {
-			ipfsAddr = proposal.payload;
-			emit IdeaRecorded(proposal.payload);
 		}
 	}
 
 	/**
-	 * Disperses funding to the calling Idea, if it is a child in the
-	 * jurisdiction of the current token, and has funds to be allocated.
+	 * Registers a commitment for the Proposal at msg.sender that can be used
+	 * to downsize the user's vote at a later point in time if necessary.
 	 */
-	function disperseFunding(address idea) external isChild(idea) {
-		FundingRate memory rate = fundedIdeas[idea];
-
-		require(rate.expiry > block.timestamp, "Funding has expired");
-		require(block.timestamp - rate.lastClaimed >= rate.intervalLength, "Claimed too recently");
-
-		fundedIdeas[idea].lastClaimed = block.timestamp;
-
-		// The number of tokens to disperse
-		uint256 tokens = rate.value;
-
-		// The governing contract has to have funds left in the designated token to transfer to the child
-		// The idea can be rewarded in ETH or an ERC-20
-		address thisAddr = address(this);
-
-		if (fundedIdeas[idea].token == address(0x00)) {
-			require(thisAddr.balance >= rate.value, "Not enough ETH for designated funds");
-
-			(bool sent, ) = payable(idea).call{value: tokens}("");
-
-			require(sent, "Failed to disperse ETH rewards");
-		} else {
-			// If the reward is in our own token, mint it
-			if (rate.kind == FundingType.MINT) {
-				require(rate.token == thisAddr, "Cannot mint funds for a foreign token");
-
-				_mint(idea, tokens);
-			} else {
-				require(IERC20 (rate.token).transfer(idea, tokens), "Failed to disperse ERC rewards");
-			}
-		}
-
-		emit FundingDispersed(idea, rate);
+	function commitVotes(address voter, Commitment memory vote) public {
+		commitVotes(Proposal(msg.sender), voter, vote);
 	}
 
 	/**
-	 * Gets the number of children funded by the idea.
+	 * Registers a commitment for the indicated Proposal.
 	 */
-	function numChildren() external view returns (uint256) {
-		return children.length;
+	function commitVotes(Proposal proposal, address voter, Commitment memory vote) private {
+		CommitmentMap storage existing = commitments[voter];
+
+		if (existing.commitments[proposal].weight == 0) {
+			existing.nCommitments++;
+			existing.committed.push(proposal);
+		}
+
+		existing.commitments[proposal] = vote;
+	}
+
+	/**
+	 * Gets the existing commitment of the voter to the proposal msg.sender.
+	 */
+	function commitment(address voter) public view returns (Commitment memory) {
+		return commitments[voter].commitments[Proposal(msg.sender)];
+	}
+
+	/**
+	 * Executes the proposal and returns true if the proposal was successful.
+	 *
+	 * Reverts if the proposal has not yet finished its voting period.
+	 */
+	function finalizeProposal(Proposal proposal) public returns (bool) {
+		require(proposal.expiry() != 0 && block.timestamp >= proposal.expiry(),
+				"Proposal voting period has not yet finished.");
+
+		// Require a >50% majority to pass any proposal
+		if (proposal.nAffirmative() * 100 / (totalSupply() * 100) < 50) {
+			emit ProposalRejected(proposal);
+
+			return false;
+		}
+
+		emit ProposalAccepted(proposal, ipfsAddr, proposal.payload());
+
+		ipfsAddr = proposal.payload();
+
+		return true;
 	}
 }
