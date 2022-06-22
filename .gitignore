@@ -154,3 +154,7 @@ dist
 .polysecret
 
 solc-input-contracts.json
+
+# Hardhat build output
+cache/
+artifacts/
