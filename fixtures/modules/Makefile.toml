@@ -1,0 +1,6 @@
+[env]
+CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
+
+[tasks.build]
+command = "wasm-pack"
+args = ["build", "--target", "web"]
