@@ -151,4 +151,40 @@ describe("Idea", () => {
 			expect(await idea.name()).to.equal(TEST_DAO.title);
 		});
 	});
+
+	// Idea is an ERC-20, so it should be transferrable between accounts
+	it("Should be transferrable", async () => {
+		const { ipfs } = await loadFixture(fixture);
+		const [sender, recipient,] = await ethers.getSigners();
+
+		// Try:
+		// - A valid transaction
+		// - An invalid transaction
+		forAllModules(async (mod) => {
+			const modCid = await ipfs.dag.put(mod);
+			const meta: IdeaMetadata = {
+				title: TEST_DAO.title,
+				description: TEST_DAO.description,
+				payload: modCid,
+			};
+
+			const cid = await ipfs.dag.put(meta);
+
+			const Idea = await ethers.getContractFactory("Idea");
+			const idea = await Idea.deploy(TEST_DAO.title, TEST_DAO.symbol, TEST_DAO.supply, cid.toString());
+			await idea.deployed();
+
+			// The user should be able to make the transaction once if they spend
+			// all their balance
+			await expect(idea.transfer(recipient.address, TEST_DAO.supply))
+				.to.emit(idea, "Transfer");
+			await expect(idea.transfer(recipient.address, TEST_DAO.supply))
+				.to.be.reverted;
+
+			// The user's new balance should be zero, and the recipient's balance
+			// should be the supply
+			expect(await idea.balanceOf(sender.address)).to.equal(0);
+			expect(await idea.balanceOf(recipient.address)).to.equal(TEST_DAO.supply);
+		});
+	});
 });
