@@ -15,5 +15,5 @@ jobs:
           cache: 'yarn'
       - run: yarn install
       - run: cargo install cargo-make
-      - run: cd fixtures/modules && cargo build
+      - run: cd fixtures/modules && cargo make
       - run: yarn hardhat test
