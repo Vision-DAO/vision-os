@@ -4,22 +4,13 @@ import { describe } from "mocha";
 
 import IdeaContract from "../artifacts/contracts/Idea.sol/Idea.json";
 import { Idea } from "../types/contracts/Idea";
-import { IPFSClient, SCHEMA, MODULES, forAllModules, bytesEqual } from "./common";
+import { IPFSClient, SCHEMA, forAllModules, bytesEqual, objectsEqual } from "./common";
 
 import { create as createValidator } from "ipld-schema-validator";
 import { parse as parseSchema, Schema } from "ipld-schema";
 import { create } from "ipfs";
-import fs from "fs";
 
 const { loadFixture } = waffle;
-
-/**
- * Deploys an instance of the beacon layer idea metadata schema with the given
- * details, returning the CID of the deployed instance.
- */
-const createIdeaMetadata = async (ipfs: IPFSClient, title: string, description: string, payload: Uint8Array): Promise<string> => {
-	return await ipfs.
-};
 
 /**
  * Tests the functionality of the Idea constructor contract, its ERC20
@@ -64,12 +55,12 @@ describe("Idea", () => {
 				expect(validator(retrieved)).to.be.true;
 				expect(bytesEqual(mod, retrieved)).to.be.true;
 			});
+		});
 	});
 
 	describe("IdeaMetadata schema", () => {
 		it("Should be validly constructable from a JavaScript object", async () => {
 			const { ipfs, schema } = await loadFixture(fixture);
-
 			const validator = createValidator(schema, "IdeaMetadata");
 
 			// Test making a metadata object for every available WASM module
@@ -84,15 +75,41 @@ describe("Idea", () => {
 
 				// Ensure that the schema does not conflict with our usage
 				expect(validator(exampleMetadata)).to.be.true;
+				expect(await ipfs.dag.put(exampleMetadata)).to.not.be.empty;
 			});
 		});
 
 		it("Should be uploadable to the IPFS network", async () => {
+			const { ipfs, schema } = await loadFixture(fixture);
+			const validator = createValidator(schema, "IdeaMetadata");
 
+			// Test making a metadata object for every available WASM module
+			forAllModules(async (mod) => {
+				const modCid = await ipfs.dag.put(mod);
+
+				const exampleMetadata = {
+					title: "Example DAO",
+					description: "An example.",
+					payload: modCid,
+				};
+
+				const cid = await ipfs.dag.put(exampleMetadata);
+				const retrieved = await ipfs.dag.get(cid);
+
+				expect(validator(retrieved)).to.be.true;
+				expect(objectsEqual(exampleMetadata, retrieved)).to.be.true;
+			});
 		});
 	});
 
 	it("Should be constructable from an instance of the schema", async () => {
-		const ipfs = await loadFixture(fixture);
+		const { ipfs, schema } = await loadFixture(fixture);
+
+		// Try making an Idea for schema instances for every WASM module available
+		// Verify that the state of the associated ERC-20 matches the parameters
+		// we give it.
+		forAllModules(async (mod) => {
+
+		});
 	});
 });

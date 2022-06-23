@@ -63,3 +63,21 @@ export const bytesEqual = (a: Uint8Array, b: Uint8Array): boolean => {
 
 	return true;
 };
+
+/**
+ * Returns true if the two objects have the same fields and values.
+ */
+export const objectsEqual = (a: any, b: any): boolean => {
+	if (typeof a !== typeof b)
+		return false;
+
+	if (Object.keys(a).length < Object.keys(b).length)
+		return false;
+
+	for (const field of Object.keys(a)) {
+		if (a[field] != b[field])
+			return false;
+	}
+
+	return true;
+}
