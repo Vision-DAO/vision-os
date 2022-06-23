@@ -5,10 +5,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
       - name: Use Node.js 16
         uses: actions/setup-node@v3
         with:
           node-version: 16
           cache: 'yarn'
       - run: yarn install
+      - run: cargo install cargo-make
+      - run: pushd fixtures/modules
+      - run: cargo build
+      - run: popd
       - run: yarn hardhat test
