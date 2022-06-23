@@ -1,22 +1,35 @@
+import { IdeaPayload } from "../types/schema";
+
 import fs from "fs";
-import { create } from "ipfs";
+import path from "path";
+import { create } from "ipfs-core";
 
 /**
  * An instance of IPFS used for harnessing a test.
  */
-export type IPFSClient = ReturnType<Awaited<typeof create>>;
+export type IPFSClient = Awaited<ReturnType<typeof create>>;
+
+/**
+ * The title, description, symbol, and supply of an example DAO.
+ */
+export const TEST_DAO = {
+	title: "Example DAO",
+	description: "An example.",
+	symbol: "TEST",
+	supply: 21000000 * Math.pow(10, 18),
+};
 
 /**
  * The path to the file containing an IPLD schema to parse describing Vision
  * metadata.
  */
-export const SCHEMA_PATH: string = process.env.SCHEMA_PATH || "../fixtures/beacon_layer.ipldsch";
+export const SCHEMA_PATH: string = path.resolve(process.env.SCHEMA_PATH || "fixtures/beacon_layer.ipldsch");
 
 /**
  * The path to a directory of .wasm files that should be loaded for testing
  * purposes. No extensive testing of these modules' functionality is performed.
  */
-export const MODULES_PATH: string = process.env.MODULES_PATH || "../fixtures/modules/target/wasm32-unknown-unknown/release/";
+export const MODULES_PATH: string = path.resolve(process.env.MODULES_PATH || "fixtures/modules/target/wasm32-unknown-unknown/release/");
 
 /**
  * wasm-pack will stubbornly compile the root src/lib.rs for the modules
@@ -30,8 +43,9 @@ export const MODULE_IGNORES: string[] = (process.env.MODULE_IGNORES || "beacon_d
 export const MODULES: string[] = fs
 	.readdirSync(MODULES_PATH)
 	.filter((path) =>
-		!(path.substring(path.lastIndexOf(".")) in MODULE_IGNORES)
-	);
+		!(path.substring(path.lastIndexOf(".")) in MODULE_IGNORES))
+	.map((p) => path.resolve(p)
+);
 
 /**
  * The IPLD schema used for validating compatibility with test methodology.
@@ -41,7 +55,7 @@ export const SCHEMA: string = fs.readFileSync(SCHEMA_PATH, "utf-8");
 /**
  * Executes a test for every WASM module loaded for testing.
  */
-export const forAllModules = async (fn: (module: Uint8Array) => Promise<void>) => {
+export const forAllModules = async (fn: (module: IdeaPayload) => Promise<void>) => {
 	for (const modPath of MODULES) {
 		const modContents = fs.readFileSync(modPath);
 

@@ -14,18 +14,21 @@
     "@typechain/ethers-v5": "^10.1.0",
     "@typechain/hardhat": "^6.1.2",
     "@types/mocha": "^9.1.1",
+    "chai": "^4.3.6",
+    "cid": "multiformats/cid",
     "cypress": "^10.2.0",
     "ethereum-waffle": "^3.0.0",
     "ethers": "^5.0.0",
     "hardhat": "^2.9.9",
-    "ipfs": "^0.63.3",
+    "ipfs": "0.62.2",
+    "ipfs-core": "0.14.2",
     "ipld-schema": "^2.0.2",
-    "ipld-schema-validator": "^0.1.0",
     "ts-node": "^10.8.1",
     "typechain": "^8.1.0",
     "typescript": "^4.7.4"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^4.6.0"
+    "@openzeppelin/contracts": "^4.6.0",
+    "ipld-schema-validator": "https://github.com/Vision-DAO/js-ipld-schema-validator"
   }
 }
