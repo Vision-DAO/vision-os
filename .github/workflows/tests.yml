@@ -1,4 +1,4 @@
-name: NodeJS Hardhat Contract Tests
+name: Hardhat Contract and Beacon DAO Module Tests
 on: [push]
 jobs:
   Test:
@@ -16,5 +16,5 @@ jobs:
       - run: yarn install
       - run: cargo install cargo-make
       - run: cargo install wasm-pack
-      - run: cd fixtures/modules && cargo make
+      - run: cd fixtures/modules && cargo make && cargo make test
       - run: yarn hardhat test

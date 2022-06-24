@@ -1,5 +1,7 @@
 use wasm_bindgen::prelude::wasm_bindgen;
 
+pub mod tests;
+
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(js_namespace = console)]
@@ -7,6 +9,6 @@ extern "C" {
 }
 
 #[wasm_bindgen]
-pub fn main() {
+pub fn start() {
     log("Hello, world!");
 }
