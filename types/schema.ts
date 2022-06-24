@@ -11,7 +11,7 @@ export type IdeaPayload = Uint8Array;
 export interface IdeaMetadata {
 	title: string,
 	description: string,
-	payload: CID,
+	payload: CID[],
 }
 
 /**

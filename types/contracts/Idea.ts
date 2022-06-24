@@ -45,7 +45,7 @@ export interface IdeaInterface extends utils.Interface {
     "approve(address,uint256)": FunctionFragment;
     "balanceOf(address)": FunctionFragment;
     "commitVotes(address,(address,uint256,uint8))": FunctionFragment;
-    "commitment(address)": FunctionFragment;
+    "commitment(address,address)": FunctionFragment;
     "decimals()": FunctionFragment;
     "decreaseAllowance(address,uint256)": FunctionFragment;
     "finalizeProposal(address)": FunctionFragment;
@@ -95,7 +95,7 @@ export interface IdeaInterface extends utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "commitment",
-    values: [PromiseOrValue<string>]
+    values: [PromiseOrValue<string>, PromiseOrValue<string>]
   ): string;
   encodeFunctionData(functionFragment: "decimals", values?: undefined): string;
   encodeFunctionData(
@@ -276,6 +276,7 @@ export interface Idea extends BaseContract {
     ): Promise<ContractTransaction>;
 
     commitment(
+      prop: PromiseOrValue<string>,
       voter: PromiseOrValue<string>,
       overrides?: CallOverrides
     ): Promise<[CommitmentStructOutput]>;
@@ -345,6 +346,7 @@ export interface Idea extends BaseContract {
   ): Promise<ContractTransaction>;
 
   commitment(
+    prop: PromiseOrValue<string>,
     voter: PromiseOrValue<string>,
     overrides?: CallOverrides
   ): Promise<CommitmentStructOutput>;
@@ -414,6 +416,7 @@ export interface Idea extends BaseContract {
     ): Promise<void>;
 
     commitment(
+      prop: PromiseOrValue<string>,
       voter: PromiseOrValue<string>,
       overrides?: CallOverrides
     ): Promise<CommitmentStructOutput>;
@@ -522,6 +525,7 @@ export interface Idea extends BaseContract {
     ): Promise<BigNumber>;
 
     commitment(
+      prop: PromiseOrValue<string>,
       voter: PromiseOrValue<string>,
       overrides?: CallOverrides
     ): Promise<BigNumber>;
@@ -592,6 +596,7 @@ export interface Idea extends BaseContract {
     ): Promise<PopulatedTransaction>;
 
     commitment(
+      prop: PromiseOrValue<string>,
       voter: PromiseOrValue<string>,
       overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;

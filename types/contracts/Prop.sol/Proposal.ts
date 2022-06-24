@@ -30,7 +30,10 @@ import type {
 export interface ProposalInterface extends utils.Interface {
   functions: {
     "active()": FunctionFragment;
+    "castVote(address,uint8,uint256)": FunctionFragment;
     "castVote(uint8,uint256)": FunctionFragment;
+    "closeProposal()": FunctionFragment;
+    "closedAt()": FunctionFragment;
     "duration()": FunctionFragment;
     "expiry()": FunctionFragment;
     "governor()": FunctionFragment;
@@ -48,7 +51,10 @@ export interface ProposalInterface extends utils.Interface {
   getFunction(
     nameOrSignatureOrTopic:
       | "active"
-      | "castVote"
+      | "castVote(address,uint8,uint256)"
+      | "castVote(uint8,uint256)"
+      | "closeProposal"
+      | "closedAt"
       | "duration"
       | "expiry"
       | "governor"
@@ -65,9 +71,22 @@ export interface ProposalInterface extends utils.Interface {
 
   encodeFunctionData(functionFragment: "active", values?: undefined): string;
   encodeFunctionData(
-    functionFragment: "castVote",
+    functionFragment: "castVote(address,uint8,uint256)",
+    values: [
+      PromiseOrValue<string>,
+      PromiseOrValue<BigNumberish>,
+      PromiseOrValue<BigNumberish>
+    ]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "castVote(uint8,uint256)",
     values: [PromiseOrValue<BigNumberish>, PromiseOrValue<BigNumberish>]
   ): string;
+  encodeFunctionData(
+    functionFragment: "closeProposal",
+    values?: undefined
+  ): string;
+  encodeFunctionData(functionFragment: "closedAt", values?: undefined): string;
   encodeFunctionData(functionFragment: "duration", values?: undefined): string;
   encodeFunctionData(functionFragment: "expiry", values?: undefined): string;
   encodeFunctionData(functionFragment: "governor", values?: undefined): string;
@@ -94,7 +113,19 @@ export interface ProposalInterface extends utils.Interface {
   ): string;
 
   decodeFunctionResult(functionFragment: "active", data: BytesLike): Result;
-  decodeFunctionResult(functionFragment: "castVote", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "castVote(address,uint8,uint256)",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "castVote(uint8,uint256)",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(
+    functionFragment: "closeProposal",
+    data: BytesLike
+  ): Result;
+  decodeFunctionResult(functionFragment: "closedAt", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "duration", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "expiry", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "governor", data: BytesLike): Result;
@@ -191,11 +222,24 @@ export interface Proposal extends BaseContract {
   functions: {
     active(overrides?: CallOverrides): Promise<[boolean]>;
 
-    castVote(
+    "castVote(address,uint8,uint256)"(
+      voter: PromiseOrValue<string>,
       nature: PromiseOrValue<BigNumberish>,
       weight: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<ContractTransaction>;
+
+    "castVote(uint8,uint256)"(
+      nature: PromiseOrValue<BigNumberish>,
+      weight: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    closeProposal(
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<ContractTransaction>;
+
+    closedAt(overrides?: CallOverrides): Promise<[BigNumber]>;
 
     duration(overrides?: CallOverrides): Promise<[BigNumber]>;
 
@@ -231,11 +275,24 @@ export interface Proposal extends BaseContract {
 
   active(overrides?: CallOverrides): Promise<boolean>;
 
-  castVote(
+  "castVote(address,uint8,uint256)"(
+    voter: PromiseOrValue<string>,
     nature: PromiseOrValue<BigNumberish>,
     weight: PromiseOrValue<BigNumberish>,
     overrides?: Overrides & { from?: PromiseOrValue<string> }
   ): Promise<ContractTransaction>;
+
+  "castVote(uint8,uint256)"(
+    nature: PromiseOrValue<BigNumberish>,
+    weight: PromiseOrValue<BigNumberish>,
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  closeProposal(
+    overrides?: Overrides & { from?: PromiseOrValue<string> }
+  ): Promise<ContractTransaction>;
+
+  closedAt(overrides?: CallOverrides): Promise<BigNumber>;
 
   duration(overrides?: CallOverrides): Promise<BigNumber>;
 
@@ -271,11 +328,22 @@ export interface Proposal extends BaseContract {
   callStatic: {
     active(overrides?: CallOverrides): Promise<boolean>;
 
-    castVote(
+    "castVote(address,uint8,uint256)"(
+      voter: PromiseOrValue<string>,
       nature: PromiseOrValue<BigNumberish>,
       weight: PromiseOrValue<BigNumberish>,
       overrides?: CallOverrides
     ): Promise<void>;
+
+    "castVote(uint8,uint256)"(
+      nature: PromiseOrValue<BigNumberish>,
+      weight: PromiseOrValue<BigNumberish>,
+      overrides?: CallOverrides
+    ): Promise<void>;
+
+    closeProposal(overrides?: CallOverrides): Promise<void>;
+
+    closedAt(overrides?: CallOverrides): Promise<BigNumber>;
 
     duration(overrides?: CallOverrides): Promise<BigNumber>;
 
@@ -329,11 +397,24 @@ export interface Proposal extends BaseContract {
   estimateGas: {
     active(overrides?: CallOverrides): Promise<BigNumber>;
 
-    castVote(
+    "castVote(address,uint8,uint256)"(
+      voter: PromiseOrValue<string>,
       nature: PromiseOrValue<BigNumberish>,
       weight: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<BigNumber>;
+
+    "castVote(uint8,uint256)"(
+      nature: PromiseOrValue<BigNumberish>,
+      weight: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    closeProposal(
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<BigNumber>;
+
+    closedAt(overrides?: CallOverrides): Promise<BigNumber>;
 
     duration(overrides?: CallOverrides): Promise<BigNumber>;
 
@@ -370,11 +451,24 @@ export interface Proposal extends BaseContract {
   populateTransaction: {
     active(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
-    castVote(
+    "castVote(address,uint8,uint256)"(
+      voter: PromiseOrValue<string>,
       nature: PromiseOrValue<BigNumberish>,
       weight: PromiseOrValue<BigNumberish>,
       overrides?: Overrides & { from?: PromiseOrValue<string> }
     ): Promise<PopulatedTransaction>;
+
+    "castVote(uint8,uint256)"(
+      nature: PromiseOrValue<BigNumberish>,
+      weight: PromiseOrValue<BigNumberish>,
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    closeProposal(
+      overrides?: Overrides & { from?: PromiseOrValue<string> }
+    ): Promise<PopulatedTransaction>;
+
+    closedAt(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 
     duration(overrides?: CallOverrides): Promise<PopulatedTransaction>;
 

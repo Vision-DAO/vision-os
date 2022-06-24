@@ -3,11 +3,11 @@ import { expect, assert } from "chai";
 import { describe } from "mocha";
 
 import { IdeaMetadata, IdeaPayload } from "../types/schema";
-import { IPFSClient, SCHEMA, forAllModules, bytesEqual, objectsEqual, TEST_DAO } from "./common";
+import { IPFSClient, forAllModules, forAllModuleCIDs, TEST_DAO, fixture, MODULES } from "./common";
 
-import { parse as parseSchema, Schema } from "ipld-schema";
-import { create } from "ipfs-core";
+import { Schema } from "ipld-schema";
 import { CID } from "multiformats/cid";
+import fs from "fs";
 
 const { create: createValidator } = require("ipld-schema-validator");
 const { loadFixture } = waffle;
@@ -24,19 +24,13 @@ const { loadFixture } = waffle;
  * here: https://github.com/ipld/js-ipld-schema
  */
 describe("Idea", () => {
-	const fixture = async (): Promise<{ address: string, ipfs: IPFSClient, schema: Schema }> => {
-		// Make sure not to save state between any IPFS instances by using
-		// multiple, disjointed repos
-		return { address: (await ethers.getSigners())[0].address, ipfs: await create({ repo: `/var/tmp/ipfs_${Math.random() * 100}` }), schema: parseSchema(SCHEMA) };
-	};
-
 	describe("IdeaPayload schema", () => {
 		it("Should be uploadable from a Uint8Array", async () => {
 			const { ipfs, schema }: { ipfs: IPFSClient, schema: Schema } = await loadFixture(fixture);
 			const validator = createValidator(schema, "IdeaPayload");
 
 			// Make sure each module can be treated as a schema instance
-			forAllModules(async (mod) => {
+			await forAllModules(async (mod) => {
 				expect(validator(mod)).to.be.true;
 				expect(await ipfs.dag.put(mod)).to.not.be.empty;
 			});
@@ -48,12 +42,12 @@ describe("Idea", () => {
 
 			// Make sure the local disk and the remote version of the module are
 			// exactly the same
-			forAllModules(async (mod) => {
+			await forAllModules(async (mod) => {
 				const cid = await ipfs.dag.put(mod as IdeaPayload);
 				const retrieved = await ipfs.dag.get(cid).then((res) => res.value) as IdeaPayload;
 
 				expect(validator(retrieved)).to.be.true;
-				expect(bytesEqual(mod, retrieved)).to.be.true;
+				expect(mod).to.eql(retrieved);
 			});
 		});
 	});
@@ -64,19 +58,15 @@ describe("Idea", () => {
 			const validator = createValidator(schema, "IdeaMetadata");
 
 			// Test making a metadata object for every available WASM module
-			forAllModules(async (mod) => {
-				const modCid = await ipfs.dag.put(mod);
+			const exampleMetadata: IdeaMetadata = {
+				title: TEST_DAO.title,
+				payload: await Promise.all(MODULES.map((mod: string) => ipfs.dag.put(fs.readFileSync(mod)))),
+				description: TEST_DAO.description,
+			};
 
-				const exampleMetadata: IdeaMetadata = {
-					title: TEST_DAO.title,
-					description: TEST_DAO.description,
-					payload: modCid,
-				};
-
-				// Ensure that the schema does not conflict with our usage
-				expect(validator(exampleMetadata)).to.be.true;
-				expect(await ipfs.dag.put(exampleMetadata)).to.not.be.empty;
-			});
+			// Ensure that the schema does not conflict with our usage
+			expect(validator(exampleMetadata)).to.be.true;
+			expect(await ipfs.dag.put(exampleMetadata)).to.not.be.empty;
 		});
 
 		it("Should be uploadable to the IPFS network", async () => {
@@ -84,21 +74,17 @@ describe("Idea", () => {
 			const validator = createValidator(schema, "IdeaMetadata");
 
 			// Test making a metadata object for every available WASM module
-			forAllModules(async (mod) => {
-				const modCid = await ipfs.dag.put(mod);
+			const exampleMetadata: IdeaMetadata = {
+				title: TEST_DAO.title,
+				payload: await Promise.all(MODULES.map((mod: string) => ipfs.dag.put(fs.readFileSync(mod)))),
+				description: TEST_DAO.description,
+			};
 
-				const exampleMetadata: IdeaMetadata = {
-					title: TEST_DAO.title,
-					description: TEST_DAO.description,
-					payload: modCid,
-				};
+			const cid = await ipfs.dag.put(exampleMetadata);
+			const retrieved = await ipfs.dag.get(cid).then((res) => res.value) as IdeaMetadata;
 
-				const cid = await ipfs.dag.put(exampleMetadata);
-				const retrieved = await ipfs.dag.get(cid).then((res) => res.value) as IdeaMetadata;
-
-				expect(validator(retrieved)).to.be.true;
-				expect(objectsEqual(exampleMetadata, retrieved)).to.be.true;
-			});
+			expect(validator(retrieved)).to.be.true;
+			expect(exampleMetadata).to.eql(retrieved);
 		});
 	});
 
@@ -108,12 +94,12 @@ describe("Idea", () => {
 		// Try making an Idea for schema instances for every WASM module available
 		// Verify that the state of the associated ERC-20 matches the parameters
 		// we give it.
-		forAllModules(async (mod) => {
+		await forAllModules(async (mod) => {
 			const modCid = await ipfs.dag.put(mod);
 			const exampleMetadata: IdeaMetadata = {
 				title: TEST_DAO.title,
 				description: TEST_DAO.description,
-				payload: modCid,
+				payload: [modCid],
 			};
 
 			const cid = await ipfs.dag.put(exampleMetadata);
@@ -126,10 +112,10 @@ describe("Idea", () => {
 
 			// Ensure successful deployment according to constructor parameters, and
 			// necessary events were emitted
-			const onChainMeta = await idea.ipfsAddr();
+			const onChainMeta = CID.parse(await idea.ipfsAddr());
 
-			expect(idea).to.contain("0x");
-			assert(CID.isCID(onChainMeta), "Invalid CID");
+			expect(idea.address).to.contain("0x");
+			assert(onChainMeta !== null, "Invalid CID");
 
 			// Ensure that the Idea's payload and metadata is intact
 			const metaVerifier = createValidator(schema, "IdeaMetadata");
@@ -140,10 +126,10 @@ describe("Idea", () => {
 			expect(metadata.description).to.equal(TEST_DAO.description);
 
 			const payloadVerifier = createValidator(schema, "IdeaPayload");
-			const payload = await ipfs.dag.get(metadata.payload).then((res) => res.value);
+			const payload = await ipfs.dag.get(metadata.payload[0]).then((res) => res.value);
 
 			expect(payloadVerifier(payload)).to.be.true;
-			expect(bytesEqual(payload, mod)).to.be.true;
+			expect(payload).to.eql(mod);
 
 			// Ensure that the details of the Idea's token are intact
 			expect(await idea.balanceOf(address)).to.equal(TEST_DAO.supply);
@@ -160,12 +146,11 @@ describe("Idea", () => {
 		// Try:
 		// - A valid transaction
 		// - An invalid transaction
-		forAllModules(async (mod) => {
-			const modCid = await ipfs.dag.put(mod);
+		forAllModuleCIDs(ipfs, async (modCid) => {
 			const meta: IdeaMetadata = {
 				title: TEST_DAO.title,
 				description: TEST_DAO.description,
-				payload: modCid,
+				payload: [modCid],
 			};
 
 			const cid = await ipfs.dag.put(meta);

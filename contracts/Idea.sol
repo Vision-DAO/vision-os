@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./Prop.sol";
+import "hardhat/console.sol";
 
 /**
  * A contract that implements a DAO for establishing consensus about the state
@@ -61,20 +62,25 @@ contract Idea is ERC20 {
 			Proposal committee = commits.committed[i];
 			Commitment storage commit = commits.commitments[committee];
 
-			if (commit.weight == 0 || (block.timestamp > committee.expiry() && committee.expiry() != 0)) {
+			uint256 balance = balanceOf(from);
+
+			if (commit.weight == 0 || (block.timestamp >= committee.expiry() && committee.expiry() != 0)) {
 				// Zombie commitment. Clear out
 				n--;
 
 				commit.weight = 0;
-				commits.committed[i] = commits.committed[n - 1];
+
+				commits.committed[i] = commits.committed[n];
 				commits.committed.pop();
 
 				commits.nCommitments--;
-			} else if (commits.commitments[committee].weight > balanceOf(from)) {
+			} else if (commits.commitments[committee].weight > balance) {
 				// The user's vote is no longer valid because their balance is less
 				// than the number of votes they committed. Set the user's new
 				// vote to the most they can pay
-				commitVotes(committee, from, Commitment(committee, balanceOf(from), VoteKind.AFFIRMATIVE));
+				committee.castVote(from, commit.nature, balance);
+
+				i++;
 			}
 		}
 	}
@@ -91,6 +97,8 @@ contract Idea is ERC20 {
 	 * Registers a commitment for the indicated Proposal.
 	 */
 	function commitVotes(Proposal proposal, address voter, Commitment memory vote) private {
+		require(address(proposal) == address(vote.dependent), "Commitment is from a sibling proposal.");
+
 		CommitmentMap storage existing = commitments[voter];
 
 		if (existing.commitments[proposal].weight == 0) {
@@ -104,8 +112,8 @@ contract Idea is ERC20 {
 	/**
 	 * Gets the existing commitment of the voter to the proposal msg.sender.
 	 */
-	function commitment(address voter) public view returns (Commitment memory) {
-		return commitments[voter].commitments[Proposal(msg.sender)];
+	function commitment(Proposal prop, address voter) public view returns (Commitment memory) {
+		return commitments[voter].commitments[prop];
 	}
 
 	/**
@@ -114,18 +122,21 @@ contract Idea is ERC20 {
 	 * Reverts if the proposal has not yet finished its voting period.
 	 */
 	function finalizeProposal(Proposal proposal) public returns (bool) {
-		require(proposal.expiry() != 0 && block.timestamp >= proposal.expiry(),
+		require(proposal.closedAt() == 0 && block.timestamp >= proposal.expiry(),
 				"Proposal voting period has not yet finished.");
 
+		// Prevent reentrance
+		proposal.closeProposal();
+
 		// Require a >50% majority to pass any proposal
-		if (proposal.nAffirmative() * 100 / (totalSupply() * 100) < 50) {
+		if (proposal.nAffirmative() * 100 / totalSupply() <= 50) {
 			emit ProposalRejected(proposal);
 
 			return false;
 		}
 
+		// Emit the old IPFS addr, and the new one
 		emit ProposalAccepted(proposal, ipfsAddr, proposal.payload());
-
 		ipfsAddr = proposal.payload();
 
 		return true;

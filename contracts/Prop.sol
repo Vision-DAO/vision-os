@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../node_modules/@openzeppelin/contracts/access/Ownable.sol";
 import "./Idea.sol";
+import "hardhat/console.sol";
 
 /**
  * An iterable set of all the commitments made by the user to proposals for
@@ -52,10 +53,12 @@ contract Proposal is Ownable {
 	uint256 public nVoters;
 	uint256 public nVotes;
 
-	/* The length of the proposal's voting period, and the timestamp after
-	 * which votes will no longer be accepted. */
+	/* The length of the proposal's voting period, the timestamp after
+	 * which votes will no longer be accepted, and the timestamp at which
+	 * the proposal was finalized. */
 	uint256 public duration;
 	uint256 public expiry;
+	uint256 public closedAt;
 
 	/* The Idea whose tokens represent votes for this proposal. */
 	Idea public governor;
@@ -85,6 +88,12 @@ contract Proposal is Ownable {
 		_;
 	}
 
+	modifier isGovernor {
+		require(msg.sender == address(governor),
+				"The caller must be the governor of the proposal.");
+		_;
+	}
+
 	/**
 	 * Creates a new proposal with the given metadata, voting period length,
 	 * and parent contract. The parent contract must be an instance of the Idea
@@ -106,6 +115,7 @@ contract Proposal is Ownable {
 		// Expiry determined after the vote is initiated
 		duration = _duration;
 		expiry = 0;
+		closedAt = 0;
 
 		governor = _governor;
 	}
@@ -124,22 +134,29 @@ contract Proposal is Ownable {
 	 * Can only be called by the author of the proposal.
 	 */
 	function initiateVotingPeriod() public onlyOwner notBegun {
+		require(expiry == 0, "Voting period already started.");
+
 		expiry = block.timestamp + duration;
 		emit VoteStarted(msg.sender);
 	}
 
 	/**
-	 * Casts a vote in the affirmative or negative, and with the given number
-	 * of votes, weight.
-	 *
-	 * Reverts if the user's balance is less than the specified weight.
-	 * Reverts if the voting period is not active.
+	 * Marks the proposal as spent, meaning it can no longer be finalized.
 	 */
-	function castVote(VoteKind nature, uint256 weight) public isActive {
-		require(governor.balanceOf(msg.sender) >= weight,
-				"Insufficient balance to cast specified number of votes.");
+	function closeProposal() public isGovernor {
+		closedAt = block.timestamp;
+	}
 
-		Commitment memory prevVote = governor.commitment(msg.sender);
+	/**
+	 * Casts a vote in the affirmative or negative for a voter identified by an
+	 * address.
+	 */
+	function castVote(address voter, VoteKind nature, uint256 weight) public isGovernor {
+		delegateVote(voter, nature, weight);
+	}
+
+	function delegateVote(address voter, VoteKind nature, uint256 weight) private {
+		Commitment memory prevVote = governor.commitment(this, voter);
 
 		// Increment the vote count if the user hadn't voted previously.
 		// Set the new total number of votes to the total number of votes
@@ -157,7 +174,21 @@ contract Proposal is Ownable {
 			nAffirmative = newAffirmative;
 		}
 
-		governor.commitVotes(msg.sender, Commitment(this, weight, nature));
-		emit VoteCast(msg.sender, nature, weight);
+		governor.commitVotes(voter, Commitment(this, weight, nature));
+		emit VoteCast(voter, nature, weight);
+	}
+
+	/**
+	 * Casts a vote in the affirmative or negative, and with the given number
+	 * of votes, weight.
+	 *
+	 * Reverts if the user's balance is less than the specified weight.
+	 * Reverts if the voting period is not active.
+	 */
+	function castVote(VoteKind nature, uint256 weight) public isActive {
+		require(governor.balanceOf(msg.sender) >= weight,
+				"Insufficient balance to cast specified number of votes.");
+
+		delegateVote(msg.sender, nature, weight);
 	}
 }
