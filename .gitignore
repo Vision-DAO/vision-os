@@ -158,3 +158,5 @@ solc-input-contracts.json
 # Hardhat build output
 cache/
 artifacts/
+.zsh_config
+deployments/

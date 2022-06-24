@@ -20,6 +20,7 @@
     "ethereum-waffle": "^3.0.0",
     "ethers": "^5.0.0",
     "hardhat": "^2.9.9",
+    "hardhat-deploy": "^0.11.10",
     "ipfs": "0.62.2",
     "ipfs-core": "0.14.2",
     "ipld-schema": "^2.0.2",
