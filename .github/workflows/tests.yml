@@ -1,7 +1,7 @@
-name: Hardhat Contract and Beacon DAO Module Tests
+name: Hardhat Contract and Beacon DAO Module Tests, and Continuous Deployment
 on: [push]
 jobs:
-  Test:
+  Test_Deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -18,3 +18,4 @@ jobs:
       - run: cargo install wasm-pack
       - run: cd fixtures/modules && cargo make && cargo make test
       - run: yarn hardhat test
+      - run: DEPLOYMENT_PRIVATE_KEY=${{ secrets.DeploymentPrivateKey }} yarn hardhat deploy
