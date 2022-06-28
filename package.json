@@ -36,5 +36,8 @@
     "ethers": "^5.6.9",
     "ipld-schema-validator": "https://github.com/Vision-DAO/js-ipld-schema-validator"
   },
-  "packageManager": "yarn@3.2.1"
+  "packageManager": "yarn@3.2.1",
+  "peerDependencies": {
+    "typescript": "*"
+  }
 }
