@@ -2,7 +2,7 @@
   "name": "beacon-dao",
   "version": "0.1.0",
   "description": "Smart contracts implementing the Vision Beacon DAO.",
-  "main": "index.js",
+  "main": "dist/types/index.js",
   "repository": "git@github.com:vision-dao/value-tree.git",
   "author": "Dowland Aiello <dowlandaiello@gmail.com>",
   "license": "MIT",
@@ -28,6 +28,9 @@
     "ts-node": "^10.8.1",
     "typechain": "^8.1.0",
     "typescript": "^4.7.4"
+  },
+  "scripts": {
+    "bundle": "tsc types/index.ts; git clean -f types"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.6.0",
