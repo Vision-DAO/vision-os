@@ -36,5 +36,6 @@
     "@openzeppelin/contracts": "^4.6.0",
     "ethers": "^5.6.9",
     "ipld-schema-validator": "https://github.com/Vision-DAO/js-ipld-schema-validator"
-  }
+  },
+  "packageManager": "yarn@3.2.1"
 }
