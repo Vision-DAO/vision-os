@@ -29,7 +29,7 @@
     "typescript": "^4.7.4"
   },
   "scripts": {
-    "prepack": "tsc types/index.ts; git clean -f types"
+    "prepack": "tsc --outDir dist types/index.ts"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.6.0",
