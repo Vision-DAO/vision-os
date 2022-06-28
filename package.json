@@ -16,7 +16,6 @@
     "@typechain/hardhat": "^6.1.2",
     "@types/mocha": "^9.1.1",
     "chai": "^4.3.6",
-    "cid": "multiformats/cid",
     "cypress": "^10.2.0",
     "dotenv": "^16.0.1",
     "ethereum-waffle": "^3.0.0",
