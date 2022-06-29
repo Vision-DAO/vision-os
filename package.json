@@ -11,7 +11,7 @@
   "files": [
     "contracts/**",
     "dist/**",
-    "types/index.d.ts"
+    "types/**"
   ],
   "devDependencies": {
     "@ipld/dag-cbor": "^7.0.2",
