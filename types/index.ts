@@ -18,3 +18,4 @@ export type { Idea } from "./contracts/Idea";
 export { Idea__factory } from "./factories/contracts/Idea__factory";
 export type { Proposal } from "./contracts/Prop.sol/Proposal";
 export { Proposal__factory } from "./factories/contracts/Prop.sol/Proposal__factory";
+export type { IdeaPayload, IdeaMetadata, ProposalPayload, ProposalMetadata } from "./schema";
