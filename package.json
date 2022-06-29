@@ -2,7 +2,7 @@
   "name": "beacon-dao",
   "version": "0.1.0",
   "description": "Smart contracts implementing the Vision Beacon DAO.",
-  "main": "dist/types/index.js",
+  "main": "dist/index.js",
   "repository": "git@github.com:vision-dao/value-tree.git",
   "author": "Dowland Aiello <dowlandaiello@gmail.com>",
   "license": "MIT",
