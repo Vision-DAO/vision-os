@@ -4,8 +4,9 @@
 		"module": "commonjs",
 		"strict": true,
 		"esModuleInterop": true,
-		"outDir": "dist",
-		"resolveJsonModule": true
+		"outDir": "./dist",
+		"resolveJsonModule": true,
+		"declaration": true
 	},
 	"include": ["./types"],
 	"files": ["./types/index.ts"]

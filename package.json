@@ -2,16 +2,15 @@
   "name": "beacon-dao",
   "version": "0.1.0",
   "description": "Smart contracts implementing the Vision Beacon DAO.",
-  "main": "dist/index.js",
+  "main": "./dist/index.js",
   "repository": "git@github.com:vision-dao/value-tree.git",
   "author": "Dowland Aiello <dowlandaiello@gmail.com>",
   "license": "MIT",
   "private": true,
-  "types": "./types/index.d.ts",
+  "types": "./dist/index.d.ts",
   "files": [
     "contracts/**",
-    "dist/**",
-    "types/**"
+    "dist/**"
   ],
   "devDependencies": {
     "@ipld/dag-cbor": "^7.0.2",
