@@ -29,7 +29,7 @@
     "typescript": "^4.7.4"
   },
   "scripts": {
-    "prepack": "touch here.txt"
+    "prepack": "tsc --outDir dist types/index.ts > out 2>err"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.6.0",
