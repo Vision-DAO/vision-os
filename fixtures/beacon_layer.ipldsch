@@ -1,5 +1,12 @@
 ## IdeaPayload is a WASM module, represented by a byte array
-type IdeaPayload bytes
+type IdeaPayload struct {
+	## JavaScript evaluated to load the module. Includes module imports, for
+	## example
+	loader String
+
+	## The WASM module that should be executed through a `start` entrypoint
+	module Bytes
+}
 
 ## Payload is a list of WASM modules, which are each WASM binaries
 type IdeaMetadata struct {

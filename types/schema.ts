@@ -3,7 +3,10 @@ import { CID } from "multiformats/cid";
 /**
  * Binary representation of a WASM program.
  */
-export type IdeaPayload = Uint8Array;
+export interface IdeaPayload {
+	loader: string,
+	module: Uint8Array,
+}
 
 /**
  * Content, and program payload of an Idea on Vision.

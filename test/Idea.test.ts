@@ -58,9 +58,21 @@ describe("Idea", () => {
 			const validator = createValidator(schema, "IdeaMetadata");
 
 			// Test making a metadata object for every available WASM module
+
+			// Payloads have the WASM modules themselves, and the JS used to attach
+			// them
+			const combinedPayload: IdeaPayload[] = await Promise.all(MODULES.map(([mod, loader]) => { return {
+					loader: fs.readFileSync(loader).toString(),
+					module: fs.readFileSync(mod),
+				};
+			}));
+
+			// Payloads are not written in-line, they are stored via CID references
+			const payloadCIDs: CID[] = await Promise.all(combinedPayload.map((payload) => ipfs.dag.put(payload)));
+
 			const exampleMetadata: IdeaMetadata = {
 				title: TEST_DAO.title,
-				payload: await Promise.all(MODULES.map((mod: string) => ipfs.dag.put(fs.readFileSync(mod)))),
+				payload: payloadCIDs,
 				description: TEST_DAO.description,
 			};
 
@@ -73,10 +85,17 @@ describe("Idea", () => {
 			const { ipfs, schema } = await loadFixture(fixture);
 			const validator = createValidator(schema, "IdeaMetadata");
 
-			// Test making a metadata object for every available WASM module
+			// Test making a metadata object and retrieving it from IPFS
+			const combinedPayload: IdeaPayload[] = await Promise.all(MODULES.map(([mod, loader]) => { return {
+					loader: fs.readFileSync(loader).toString(),
+					module: fs.readFileSync(mod),
+				};
+			}));
+
+			const payloadCIDs: CID[] = await Promise.all(combinedPayload.map((payload) => ipfs.dag.put(payload)));
 			const exampleMetadata: IdeaMetadata = {
 				title: TEST_DAO.title,
-				payload: await Promise.all(MODULES.map((mod: string) => ipfs.dag.put(fs.readFileSync(mod)))),
+				payload: payloadCIDs,
 				description: TEST_DAO.description,
 			};
 

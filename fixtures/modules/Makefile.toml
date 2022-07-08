@@ -3,8 +3,8 @@ CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 
 [tasks.build]
 command = "wasm-pack"
-args = ["build", "--target", "web"]
+args = ["build", "--target", "web", "--release"]
 
 [tasks.test]
 command = "wasm-pack"
-args = ["test", "--headless", "--chrome", "--firefox"]
+args = ["test", "--headless", "--firefox"]

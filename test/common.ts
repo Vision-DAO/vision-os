@@ -54,24 +54,31 @@ export const SCHEMA_PATH: string = path.resolve(process.env.SCHEMA_PATH || "fixt
  * The path to a directory of .wasm files that should be loaded for testing
  * purposes. No extensive testing of these modules' functionality is performed.
  */
-export const MODULES_PATH: string = path.resolve(process.env.MODULES_PATH || "fixtures/modules/target/wasm32-unknown-unknown/release/");
+export const MODULES_PATH: string = path.resolve(process.env.MODULES_PATH || "fixtures/modules");
 
 /**
  * wasm-pack will stubbornly compile the root src/lib.rs for the modules
  * fixture, but we don't want to actually run it.
  */
-export const MODULE_IGNORES: string[] = (process.env.MODULE_IGNORES || "beacon_dao_modules").split(" ");
+export const MODULE_IGNORES: string[] = (process.env.MODULE_IGNORES || "").split(" ");
 
 /**
  * The paths to every WASM module that can be used by the testing suite.
  */
-export const MODULES: string[] = fs
-	.readdirSync(MODULES_PATH)
+export const MODULES: [string, string][] = fs
+	.readdirSync(MODULES_PATH, { withFileTypes: true })
+	.filter((entry) => entry.isDirectory())
+	// Accept only modules written in Rust under the workspace designated by
+	// MODULES_PATH
+	.map((dir) => path.resolve(MODULES_PATH, dir.name))
 	.filter((path) =>
-		!(path.substring(path.lastIndexOf(".")) in MODULE_IGNORES))
-	.filter((path) => path.includes(".wasm"))
-	.map((p) => path.resolve(MODULES_PATH, p)
-);
+		!(path in MODULE_IGNORES))
+	// Make sure the directory has a WASM output folder
+	.filter((path) => fs.readdirSync(path).some((path) => path === "pkg"))
+	.map((p) => fs.readdirSync(path.resolve(p, "pkg")).map((child) => path.resolve(p, "pkg", child)))
+	// All modules must have a WASM binary and a JS loader
+	.map((binaries) => [binaries.find((bin) => bin.includes(".wasm")), binaries.find((bin) => bin.includes(".js"))] as [string | undefined, string | undefined])
+	.filter(([l, r]) => l !== undefined && r !== undefined) as [string, string][];
 
 /**
  * The IPLD schema used for validating compatibility with test methodology.
@@ -82,10 +89,14 @@ export const SCHEMA: string = fs.readFileSync(SCHEMA_PATH, "utf-8");
  * Executes a test for every WASM module loaded for testing.
  */
 export const forAllModules = async (fn: (module: IdeaPayload) => Promise<void>) => {
-	for (const modPath of MODULES) {
+	for (const [modPath, loaderPath] of MODULES) {
 		const modContents = fs.readFileSync(modPath);
+		const loader = fs.readFileSync(loaderPath);
 
-		await fn(modContents);
+		await fn({
+			module: modContents,
+			loader: loader.toString(),
+		});
 	}
 }
 
@@ -93,11 +104,9 @@ export const forAllModules = async (fn: (module: IdeaPayload) => Promise<void>) 
  * Executes a test for every WASM module uploaded for testing.
  */
 export const forAllModuleCIDs = async (ipfs: IPFSClient, fn: (module: CID) => Promise<void>) => {
-	for (const modPath of MODULES) {
-		const modContents = fs.readFileSync(modPath);
-
-		await fn(await ipfs.dag.put(modContents));
-	}
+	forAllModules(async (payload) => {
+		await fn (await ipfs.dag.put(payload));
+	});
 }
 
 /**
