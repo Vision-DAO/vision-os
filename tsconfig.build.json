@@ -8,6 +8,6 @@
 		"resolveJsonModule": true,
 		"declaration": true
 	},
-	"include": ["./types"],
-	"files": ["./types/index.ts"]
+	"include": ["./types", "./index.ts"],
+	"files": ["./index.ts"]
 }
