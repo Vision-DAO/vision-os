@@ -12,7 +12,7 @@ export interface Payload {
  * that can call the entrypoint method.
  */
 export interface PayloadLoader {
-	default: (module: Uint8Array) => Payload,
+	default: (module: Uint8Array) => Promise<Payload>,
 }
 
 /**
