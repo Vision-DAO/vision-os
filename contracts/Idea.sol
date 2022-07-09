@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import "../node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./Prop.sol";
-import "hardhat/console.sol";
 
 /**
  * A contract that implements a DAO for establishing consensus about the state

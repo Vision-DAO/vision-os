@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import "../node_modules/@openzeppelin/contracts/access/Ownable.sol";
 import "./Idea.sol";
-import "hardhat/console.sol";
 
 /**
  * An iterable set of all the commitments made by the user to proposals for
