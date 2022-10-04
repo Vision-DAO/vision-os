@@ -5,5 +5,5 @@ wasm_bindgen_test_configure!(run_in_browser);
 
 #[wasm_bindgen_test]
 fn test_main() {
-    super::super::start();
+	super::super::start();
 }

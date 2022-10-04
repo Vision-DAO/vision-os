@@ -1,0 +1,53 @@
+#+NAME: Permissions Module
+#+DATE: 09/30/2022
+#+AUTHOR: Dowland Aiello
+
+* Permissions Module
+
+The Vision permissions module coordinates permissioned access to both userland and system VVM resources. It does so by modeling a relationship between a "provider" of a resource--an actor that performs a privileged operation--and a "consumer" of a resource--an actor that requests the ability to perform the action. This relationship is one-to-one.
+
+Additionally, the permissions module uses the Vision window manager module to present a popup to the user requesting for this permission to be enabled.
+
+** Message Format
+The permissions module implements this relationship by facilitating the exchange of a secret token, intended to be validated by the producer, and attached to privileged messages by the consumer.
+
+*** Advertising
+
+Actors on Vision are able to make their capabilities known by sending a message to the permissions module with the following format:
+
+#+BEGIN_SRC typescript
+interface AdvertisementMsg {
+  // The name of the message to send
+  name: "announce_service"
+
+  // Arguments
+  data: {
+    // Whether a dialogue with user consent is required for access
+    passive: boolean
+
+    // Human-readable name to show for the service
+    name?: string
+  }
+}
+#+END_SRC
+
+*** Requesting Access
+
+Actors on Vision are able to gain access to a capability by sending a message with the following format to the permissions module:
+
+#+BEGIN_SRC typescript
+interface ConsentMsg {
+  // The name of the message to send
+  name: "request_permission"
+
+  // Arguments
+  data: {
+    service: Address | Hash,
+    // A human-readable string presented to the user explaining why the
+    // permission is needed
+    reason?: string
+  }
+}
+#+END_SRC
+
+where an address is the zero-indexed identifier allocated to a running actor, and a hash is the blockchain hash of the smart contract instance from which a running actor should be found.
