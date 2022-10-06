@@ -11,8 +11,7 @@ use std::{
 
 use snafu::{NoneError, ResultExt};
 use wasmer::{
-	Array, Function, Instance, Module, RuntimeError, Store, Type, Val, Value, WasmCell, WasmPtr,
-	WasmerEnv,
+	Array, Function, Instance, Module, Store, Type, Val, Value, WasmCell, WasmPtr, WasmerEnv,
 };
 
 /// A naive garbage-collected implementation of the VVM scheduler.
@@ -204,28 +203,23 @@ impl Runtime for Rt {
 		Ok(slot)
 	}
 
-	fn impulse<'a>(
-		&'a self,
-		msg_name: impl AsRef<str> + Display,
-		params: &'a [Val],
-	) -> Box<dyn Iterator<Item = Result<(), RuntimeError>> + 'a> {
+	fn impulse(&self, msg_name: impl AsRef<str> + Display, params: impl Deref<Target = [Val]>) {
 		let handler_name = format!("handle_{}", msg_name);
 
-		// Reallocate args with the sender being the master process
-		let mut proper_params = params.to_vec();
-		proper_params.push(Value::I32(0));
-
 		if let Ok(ref children) = self.children.read() {
-			Box::new(
-				children
-					.iter()
-					.filter_map(|c| c.as_ref())
-					.map(move |child| child.instance.exports.get_function(&handler_name))
-					.filter_map(Result::ok)
-					.map(move |handler| handler.call(proper_params.as_slice()).map(|_| ())),
-			)
-		} else {
-			Box::new(iter::empty())
+			children
+				.iter()
+				.filter_map(|c| c.as_ref())
+				.map(move |child| child.instance.exports.get_function(&handler_name))
+				.filter_map(Result::ok)
+				.map(move |handler| {
+					// Reallocate args with the sender being the master process
+					let mut proper_params = params.to_vec();
+					proper_params.push(Value::I32(0));
+
+					handler.call(proper_params.as_slice()).map(|_| ());
+				})
+				.collect::<Vec<_>>();
 		}
 	}
 }

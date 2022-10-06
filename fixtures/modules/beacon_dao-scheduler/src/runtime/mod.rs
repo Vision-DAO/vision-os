@@ -4,7 +4,10 @@ use crate::common::Address;
 use snafu::Snafu;
 use wasmer::{CompileError, InstantiationError, RuntimeError, Val};
 
-use std::fmt::{Debug, Display};
+use std::{
+	fmt::{Debug, Display},
+	ops::Deref,
+};
 
 /// Any error encountered by the VVM runtime.
 #[derive(Debug, Snafu)]
@@ -35,9 +38,5 @@ pub trait Runtime {
 	fn spawn(&self, module: impl AsRef<[u8]>) -> Result<Address, Error>;
 
 	/// Sends a simulated message to all actors that implement handlers for it.
-	fn impulse<'a>(
-		&'a self,
-		msg_name: impl AsRef<str> + Display,
-		params: &'a [Val],
-	) -> Box<dyn Iterator<Item = Result<(), RuntimeError>> + 'a>;
+	fn impulse(&self, msg_name: impl AsRef<str> + Display, params: impl Deref<Target = [Val]>);
 }
