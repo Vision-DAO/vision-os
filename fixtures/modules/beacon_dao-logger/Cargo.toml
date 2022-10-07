@@ -11,7 +11,6 @@ crate-type = ["cdylib"]
 wasm-bindgen = "0.2"
 wasm-bindgen-test = "0.3.0"
 web-sys = { version = "0.3.58", features = ["console"] }
+vision-utils = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git" }
 
-[dependencies.beacon_dao-scheduler]
-path = "../beacon_dao-scheduler"
 
