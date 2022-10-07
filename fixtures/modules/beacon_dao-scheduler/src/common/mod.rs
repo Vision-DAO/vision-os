@@ -1,4 +1,4 @@
-use std::num::NonZeroU32;
+pub mod memory;
 
 /// A zero-indexed address used for identifying a running Vision actor.
-pub type Address = NonZeroU32;
+pub type Address = u32;

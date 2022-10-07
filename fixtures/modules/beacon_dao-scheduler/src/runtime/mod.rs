@@ -2,7 +2,7 @@ pub mod gc;
 
 use crate::common::Address;
 use snafu::Snafu;
-use wasmer::{CompileError, InstantiationError, RuntimeError, Val};
+use wasmer::{InstantiationError, RuntimeError, Val};
 
 use std::{
 	fmt::{Debug, Display},
@@ -27,7 +27,7 @@ pub enum Error {
 #[snafu(visibility(pub))]
 pub enum WasmError {
 	InstantiationError { source: InstantiationError },
-	CompileError { source: CompileError },
+	CompileError,
 }
 
 /// A Vision Virtual Machine scheduler.
@@ -38,5 +38,9 @@ pub trait Runtime {
 	fn spawn(&self, module: impl AsRef<[u8]>) -> Result<Address, Error>;
 
 	/// Sends a simulated message to all actors that implement handlers for it.
-	fn impulse(&self, msg_name: impl AsRef<str> + Display, params: impl Deref<Target = [Val]>);
+	fn impulse(
+		&self,
+		msg_name: impl AsRef<str> + Display,
+		params: impl Deref<Target = [Val]>,
+	) -> Vec<Result<(), RuntimeError>>;
 }

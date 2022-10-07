@@ -1,9 +1,8 @@
 use super::{CompileSnafu, Error, InstantiationSnafu, LockSnafu, ModuleSnafu, Runtime};
-use crate::common::Address;
+use crate::common::{memory::get_utf8_string_with_nul, Address};
 
 use std::{
 	fmt::Display,
-	iter,
 	num::NonZeroU32,
 	ops::Deref,
 	sync::{Arc, RwLock},
@@ -11,7 +10,8 @@ use std::{
 
 use snafu::{NoneError, ResultExt};
 use wasmer::{
-	Array, Function, Instance, Module, Store, Type, Val, Value, WasmCell, WasmPtr, WasmerEnv,
+	Array, Function, Instance, Module, RuntimeError, Store, Type, Val, Value, WasmCell, WasmPtr,
+	WasmerEnv,
 };
 
 /// A naive garbage-collected implementation of the VVM scheduler.
@@ -63,24 +63,20 @@ impl Rt {
 		let children = self.children.read().ok()?;
 
 		// Get the message name from the sender, and call the receiver's handler
-		let sender = children
-			.get(from.get() as usize)
-			.map(Option::as_ref)
-			.flatten()?;
-		let recv = children
-			.get(addr.get() as usize)
-			.map(Option::as_ref)
-			.flatten()?;
+		let sender = children.get(from as usize).map(Option::as_ref).flatten()?;
+		let recv = children.get(addr as usize).map(Option::as_ref).flatten()?;
 
-		let mut msg_name = msg_name_buf
-			.get_utf8_string_with_nul(sender.instance.exports.get_memory("memory").ok()?)?;
+		let mut msg_name = get_utf8_string_with_nul(
+			msg_name_buf,
+			sender.instance.exports.get_memory("memory").ok()?,
+		)?;
 		msg_name.insert_str(0, "handle_");
 
 		let handler = recv.instance.exports.get_function(msg_name.as_str()).ok()?;
 
 		// Deref args expected by the handler from the message buffer
 		let (mut args, _) = handler.ty().params()[1..].iter().fold(
-			([Value::I32(from.get() as i32)].to_vec(), 0),
+			([Value::I32(from as i32)].to_vec(), 0),
 			|(mut accum, pos), arg| {
 				let arg_size = type_size(arg);
 
@@ -126,18 +122,18 @@ impl Rt {
 
 	fn send_message(
 		env: &Rt,
-		from: u32,
-		addr: u32,
+		from: Address,
+		addr: Address,
 		msg_name_buf: WasmPtr<u8, Array>,
 		msg_buf: WasmPtr<u8, Array>,
 	) {
 		// Ensures that provided addresses aren't the root service
 		if let Some((from, addr)) = NonZeroU32::new(from).zip(NonZeroU32::new(addr)) {
-			env.do_send_message(from, addr, msg_name_buf, msg_buf);
+			env.do_send_message(from.get(), addr.get(), msg_name_buf, msg_buf);
 		}
 	}
 
-	fn spawn_actor(_env: &Rt, _addr: u32) -> u32 {
+	fn spawn_actor(_env: &Rt, _addr: Address) -> Address {
 		unimplemented!()
 	}
 }
@@ -164,11 +160,14 @@ impl Runtime for Rt {
 				TryInto::<u32>::try_into(children.len() + 1).map_err(|_| Error::NoFreeAddrs)?;
 			children.push(None);
 
-			NonZeroU32::new(new_slot).ok_or(Error::NoFreeAddrs)?
+			NonZeroU32::new(new_slot)
+				.ok_or(Error::NoFreeAddrs)
+				.map(NonZeroU32::get)?
 		};
 
 		let store = Store::default();
 		let module = Module::new(&store, src)
+			.map_err(|_| NoneError)
 			.context(CompileSnafu)
 			.context(ModuleSnafu)?;
 
@@ -198,12 +197,16 @@ impl Runtime for Rt {
 
 		// Addresses are just indices in the set of current children
 		// (ID's reused if a slot is freed)
-		children[slot.get() as usize] = Some(actor);
+		children[slot as usize] = Some(actor);
 
 		Ok(slot)
 	}
 
-	fn impulse(&self, msg_name: impl AsRef<str> + Display, params: impl Deref<Target = [Val]>) {
+	fn impulse(
+		&self,
+		msg_name: impl AsRef<str> + Display,
+		params: impl Deref<Target = [Val]>,
+	) -> Vec<Result<(), RuntimeError>> {
 		let handler_name = format!("handle_{}", msg_name);
 
 		if let Ok(ref children) = self.children.read() {
@@ -217,9 +220,11 @@ impl Runtime for Rt {
 					let mut proper_params = params.to_vec();
 					proper_params.push(Value::I32(0));
 
-					handler.call(proper_params.as_slice()).map(|_| ());
+					handler.call(proper_params.as_slice()).map(|_| ())
 				})
-				.collect::<Vec<_>>();
+				.collect::<Vec<_>>()
+		} else {
+			Vec::new()
 		}
 	}
 }
