@@ -1,0 +1,23 @@
+#+TITLE: Beacon DAO Todo
+#+DATE: 10/08/2022
+#+AUTHOR: Dowland Aiello
+
+* TODO Beacon DAO Progress [0/2]
+
+** TODO Allocator
+Required for:
+- [[*Logger][Logger]]
+- Permissions Manager
+
+*** TODO Required Features [0/1]
+
+**** TODO Conforms to Rust Allocator trait [0/2]
+
+***** TODO allocate
+
+***** TODO deallocate
+
+** TODO Logger
+*** TODO Required Features [0/2]
+**** TODO Varying levels of logs
+**** TODO Human-readable service names

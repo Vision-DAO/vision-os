@@ -12,13 +12,13 @@ static mut ALIASES: RwLock<HashMap<Address, String>> = RwLock::new(HashMap::new(
 
 /// Registers an alias to display for the actor in messages.
 #[wasm_bindgen]
-pub fn handle_alias_service(from: Address, name: impl AsRef<str> + Display + Into<String>) {
+pub fn handle_alias_service(from: Address, name: Address) {
 	ALIASES.write().unwrap().insert(from, name.to_owned());
 }
 
 /// Writes the given message to the console, with the name of the source actor.
 #[wasm_bindgen]
-pub fn handle_info(from: Address, msg: impl AsRef<str> + Display) {
+pub fn handle_info(from: Address, msg: Address) {
 	print(&format!(
 		"INFO [Actor #{}{}]: {}",
 		from,

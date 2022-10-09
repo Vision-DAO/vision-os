@@ -10,7 +10,7 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [workspace]
-members = ["beacon_dao-hello_world", "beacon_dao-permissions", "beacon_dao-logger", "beacon_dao-scheduler"]
+members = ["beacon_dao-hello_world", "beacon_dao-permissions", "beacon_dao-logger", "beacon_dao-scheduler", "beacon_dao-allocator"]
 
 [dependencies]
 wasm-bindgen = "0.2"

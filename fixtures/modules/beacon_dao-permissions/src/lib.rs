@@ -8,5 +8,4 @@ pub static CHANNELS: RwLock<HashMap<Address, u128>>;
 /// Starts advertising the service for usage by consumers.
 pub fn handle_announce_service(sender: Address, passive: bool, name: impl AsRef<str>) {
 	let registry = CHANNELS.write().unwrap();
-	registry.put(
 }

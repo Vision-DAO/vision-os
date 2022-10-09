@@ -1,7 +1,6 @@
 [package]
-name = "beacon_dao-logger"
+name = "beacon_dao-allocator"
 version = "0.1.0"
-description = "A utility for displaying console output from Vision modules."
 edition = "2021"
 
 [lib]

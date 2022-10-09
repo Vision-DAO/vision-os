@@ -31,11 +31,11 @@ pub enum WasmError {
 }
 
 /// A Vision Virtual Machine scheduler.
-pub trait Runtime {
+pub trait Runtime<'a> {
 	/// Creates a new actor with the specified module code, returning the
 	/// address identifying the newly spawned actor. Also calls the
 	/// initialization function of the actor.
-	fn spawn(&self, module: impl AsRef<[u8]>) -> Result<Address, Error>;
+	fn spawn(&'a self, module: impl AsRef<[u8]> + 'a) -> Result<Address, Error>;
 
 	/// Sends a simulated message to all actors that implement handlers for it.
 	fn impulse(

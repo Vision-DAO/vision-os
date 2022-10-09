@@ -16,19 +16,20 @@ use wasmer::{
 
 /// A naive garbage-collected implementation of the VVM scheduler.
 #[derive(WasmerEnv, Clone)]
-pub struct Rt {
+pub struct Rt<'a> {
 	// Current running processes.
-	children: Arc<RwLock<Vec<Option<Actor>>>>,
+	children: Arc<RwLock<Vec<Option<Actor<'a>>>>>,
 
 	// Process slots that have been freed, and are available for use
 	free_slots: Arc<RwLock<Vec<Address>>>,
 }
 
 /// The source code of an actor, and its current state.
-struct Actor {
+struct Actor<'a> {
 	module: Module,
 	instance: Instance,
 	store: Store,
+	src: &'a [u8],
 }
 
 fn type_size(ty: impl Deref<Target = Type>) -> u32 {
@@ -43,7 +44,7 @@ fn type_size(ty: impl Deref<Target = Type>) -> u32 {
 	}
 }
 
-impl Default for Rt {
+impl Default for Rt<'_> {
 	fn default() -> Self {
 		Self {
 			children: Arc::new(RwLock::new(Vec::new())),
@@ -52,7 +53,7 @@ impl Default for Rt {
 	}
 }
 
-impl Rt {
+impl Rt<'_> {
 	fn do_send_message(
 		&self,
 		from: Address,
@@ -120,6 +121,16 @@ impl Rt {
 		Some(())
 	}
 
+	fn do_spawn_actor(&self, addr: Address) -> Option<Address> {
+		let src = {
+			let children = self.children.read().ok()?;
+			let child = children.get(addr as usize)?.as_ref()?;
+
+			child.src
+		};
+		self.spawn(src).ok()
+	}
+
 	fn send_message(
 		env: &Rt,
 		from: Address,
@@ -133,13 +144,13 @@ impl Rt {
 		}
 	}
 
-	fn spawn_actor(_env: &Rt, _addr: Address) -> Address {
-		unimplemented!()
+	fn spawn_actor(env: &Rt, addr: Address) -> Address {
+		env.do_spawn_actor(addr).unwrap_or(0)
 	}
 }
 
-impl Runtime for Rt {
-	fn spawn(&self, src: impl AsRef<[u8]>) -> Result<Address, Error> {
+impl<'a> Runtime<'a> for Rt<'a> {
+	fn spawn(&'a self, src: impl AsRef<[u8]> + 'a) -> Result<Address, Error> {
 		let mut slots = self
 			.free_slots
 			.write()
@@ -175,10 +186,14 @@ impl Runtime for Rt {
 		let send_message_fn =
 			Function::new_native_with_env(&store, self.clone(), Self::send_message);
 		let spawn_actor_fn = Function::new_native_with_env(&store, self.clone(), Self::spawn_actor);
+		let address_fn = Function::new_native(&store, move || slot);
 		let imports = wasmer::imports! {
 			"" => {
 				"send_message" => send_message_fn,
 				"spawn_actor" => spawn_actor_fn,
+
+				// Gets the address of the calling actor
+				"address" => address_fn,
 			},
 		};
 
@@ -189,6 +204,7 @@ impl Runtime for Rt {
 				.context(InstantiationSnafu)
 				.context(ModuleSnafu)?,
 			module,
+			src: src.as_ref(),
 		};
 
 		if let Ok(init) = actor.instance.exports.get_function("init") {
