@@ -10,8 +10,9 @@ pub fn start() {
 	let mut rt = Rt::default();
 
 	// Logging service
-	rt.spawn(include_bytes!(
-		"../../target/wasm32-unknown-unknown/release/beacon_dao_logger.wasm"
-	))
+	rt.spawn(
+		None,
+		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_logger.wasm"),
+	)
 	.unwrap();
 }

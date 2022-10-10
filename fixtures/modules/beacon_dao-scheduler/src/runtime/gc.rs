@@ -121,14 +121,14 @@ impl Rt<'_> {
 		Some(())
 	}
 
-	fn do_spawn_actor(&self, addr: Address) -> Option<Address> {
+	fn do_spawn_actor(&self, spawner: Option<Address>, addr: Address) -> Option<Address> {
 		let src = {
 			let children = self.children.read().ok()?;
 			let child = children.get(addr as usize)?.as_ref()?;
 
 			child.src
 		};
-		self.spawn(src).ok()
+		self.spawn(spawner, src).ok()
 	}
 
 	fn send_message(
@@ -144,13 +144,17 @@ impl Rt<'_> {
 		}
 	}
 
-	fn spawn_actor(env: &Rt, addr: Address) -> Address {
-		env.do_spawn_actor(addr).unwrap_or(0)
+	fn spawn_actor(env: &Rt, spawner: Address, addr: Address) -> Address {
+		env.do_spawn_actor(Some(spawner), addr).unwrap_or(0)
 	}
 }
 
 impl<'a> Runtime<'a> for Rt<'a> {
-	fn spawn(&'a self, src: impl AsRef<[u8]> + 'a) -> Result<Address, Error> {
+	fn spawn(
+		&'a self,
+		spawner: Option<Address>,
+		src: impl AsRef<[u8]> + 'a,
+	) -> Result<Address, Error> {
 		let mut slots = self
 			.free_slots
 			.write()
@@ -183,10 +187,16 @@ impl<'a> Runtime<'a> for Rt<'a> {
 			.context(ModuleSnafu)?;
 
 		// Create methods for the WASM module that allow spawning and sending
-		let send_message_fn =
-			Function::new_native_with_env(&store, self.clone(), move |env: &Rt| {
-				Self::send_message(env, slot)
-			});
+		let send_message_fn = Function::new_native_with_env(
+			&store,
+			self.clone(),
+			move |env: &Rt,
+			      addr: Address,
+			      msg_name_buf: WasmPtr<u8, Array>,
+			      msg_buf: WasmPtr<u8, Array>| {
+				Self::send_message(env, slot, addr, msg_name_buf, msg_buf)
+			},
+		);
 		let spawn_actor_fn = Function::new_native_with_env(&store, self.clone(), Self::spawn_actor);
 		let address_fn = Function::new_native(&store, move || slot);
 		let imports = wasmer::imports! {
@@ -210,7 +220,9 @@ impl<'a> Runtime<'a> for Rt<'a> {
 		};
 
 		if let Ok(init) = actor.instance.exports.get_function("init") {
-			init.call(&[]);
+			if let Some(addr) = spawner {
+				init.call(&[Value::I32(addr as i32)]);
+			}
 		}
 
 		// Addresses are just indices in the set of current children
