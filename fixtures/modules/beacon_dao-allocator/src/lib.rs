@@ -15,6 +15,12 @@ macro_rules! eassert {
 	};
 }
 
+/// An error encountered while processing an allocator message.
+#[derive(Serialize, Deserialize)]
+pub enum Error {
+	OutOfBounds,
+}
+
 /// The owner of the memory cell. If this is the manager allocating cells, no
 /// owner is specified.
 static mut OWNER: Option<Address> = None;
@@ -43,50 +49,8 @@ pub fn init(owner: Address) {
 	OWNER.replace(Some(owner));
 }
 
+#[with_result_message]
 #[wasm_bindgen]
-pub fn handle_read(from: Address, offset: u32) {
-	if let Some(val, msg_kind) = VAL.get(offset).zip(CString::new("read_ok").some()) {
-		send_message(
-			from,
-			WasmPtr::from_native(msg_kind.as_ptr() as i32),
-			WasmPtr::from_native((&val as *const u8) as i32),
-		);
-	} else {
-		// Spawn and initialize a cell with enough space for an error message + null character
-		let err_msg = "Failed to read from cell. Index out of bounds.";
-		let err_msg_len = err_msg.len() + 1;
-
-		let msg_kind = CString::new("allocate").unwrap();
-		let err_buf = send_message(
-			address(),
-			WasmPtr::from_native(msg_kind.as_ptr() as i32),
-			WasmPtr::from_native((&err_msg_len as *const u8) as i32),
-		);
-
-		// Copy the contents of the error message into the cell
-		let msg_kind = CString::new("write").unwrap();
-
-		for (i, b) in err_msg.as_bytes().enumerate() {
-			// Write the character at position i to the buffer
-			let args: [u8; 5] = [0, 0, 0, 0, b];
-
-			for (i, b) in i.to_le_bytes().enumerate() {
-				args[i] = b;
-			}
-
-			send_message(
-				err_buf,
-				WasmPtr::from_native((&msg_kind as *const u8) as i32),
-				WasmPtr::from_native((&args as *const u8) as i32),
-			);
-		}
-
-		let msg_kind = CString::new("read_err").unwrap();
-
-		send_message(
-			from,
-			WasmPtr::from_native(msg_kind.as_ptr() as i32),
-			err_buf,
-		);
-	}
+pub fn handle_read(from: Address, offset: u32) -> Result<u8, Error> {
+	VAL.get(offset).ok_or(Error::OutOfBounds)
 }
