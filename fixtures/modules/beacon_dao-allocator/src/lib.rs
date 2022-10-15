@@ -117,3 +117,15 @@ pub fn handle_grow(from: Address, size: u32) {
 		}
 	}
 }
+
+#[wasm_bindgen]
+pub fn handle_shrink(from: Address, size: u32) {
+	assert_isowner!(from);
+
+	if let Ok(mut lock) = VAL.write() {
+		// Remove `size` bytes from the buffer
+		for _ in 0..size {
+			lock.pop();
+		}
+	}
+}
