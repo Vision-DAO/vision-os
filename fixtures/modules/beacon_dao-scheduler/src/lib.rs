@@ -29,4 +29,14 @@ pub fn start() {
 		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_logger.wasm"),
 	)
 	.expect("Failed to start logging service");
+
+	// Hello world service
+	// TODO: Remove
+	rt.spawn(
+		None,
+		include_bytes!("../../target/wasm32-unknown-unknown/release/hello_world_alloc.wasm"),
+	);
+
+	// Test out the hello world module
+	rt.impulse("test", vec![]);
 }
