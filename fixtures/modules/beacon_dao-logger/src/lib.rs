@@ -1,5 +1,6 @@
 use std::{collections::HashMap, fmt::Display, sync::RwLock};
 
+use vision_derive::with_bindings;
 use vision_utils::types::Address;
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -11,14 +12,16 @@ extern "C" {
 static mut ALIASES: RwLock<HashMap<Address, String>> = RwLock::new(HashMap::new());
 
 /// Registers an alias to display for the actor in messages.
+#[with_bindings]
 #[wasm_bindgen]
-pub fn handle_alias_service(from: Address, name: Address) {
-	ALIASES.write().unwrap().insert(from, name.to_owned());
+pub fn handle_alias_service(from: Address, name: String) {
+	ALIASES.write().unwrap().insert(from, name);
 }
 
 /// Writes the given message to the console, with the name of the source actor.
+#[with_bindings]
 #[wasm_bindgen]
-pub fn handle_info(from: Address, msg: Address) {
+pub fn handle_info(from: Address, msg: String) {
 	print(&format!(
 		"INFO [Actor #{}{}]: {}",
 		from,

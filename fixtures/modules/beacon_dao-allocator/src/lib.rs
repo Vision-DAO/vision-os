@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use snafu::{ensure, Snafu};
-use vision_derive::with_bindings;
+use vision_derive_internal::with_bindings;
 use vision_utils::{
 	actor::{address, send_message, spawn_actor},
 	types::Address,
