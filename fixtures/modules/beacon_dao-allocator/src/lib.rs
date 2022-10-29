@@ -37,6 +37,9 @@ macro_rules! is_owner {
 	};
 }
 
+/// The address of an actor representing a memory cell.
+pub struct AllocPtr(pub Address);
+
 /// An error encountered while processing an allocator message.
 #[derive(Serialize, Deserialize, Debug, Snafu)]
 pub enum Error {
