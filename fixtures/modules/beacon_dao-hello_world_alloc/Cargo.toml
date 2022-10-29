@@ -1,0 +1,16 @@
+[package]
+name = "beacon_dao-hello_world_alloc"
+version = "0.1.0"
+description = "A utility for displaying console output from Vision modules."
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+wasm-bindgen-test = "0.3.0"
+web-sys = { version = "0.3.58", features = ["console"] }
+vision-utils = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git" }
+vision-derive = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git" }
+beacon_dao-logger = { path = "../beacon_dao-logger" }
