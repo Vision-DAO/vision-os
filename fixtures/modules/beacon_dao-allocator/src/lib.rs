@@ -55,7 +55,7 @@ static OWNER: RwLock<Option<Address>> = RwLock::new(None);
 /// The contents of the memory cell.
 static VAL: RwLock<Vec<u8>> = RwLock::new(Vec::new());
 
-#[with_bindings]
+#[with_bindings(self)]
 #[wasm_bindgen]
 pub fn handle_allocate(from: Address, size: u32) -> Result<Address, Error> {
 	// Require that we are a manager to allocate memory
@@ -88,7 +88,7 @@ pub fn init(owner: Address) {
 	}
 }
 
-#[with_bindings]
+#[with_bindings(self)]
 #[wasm_bindgen]
 pub fn handle_read(from: Address, offset: u32) -> Result<u8, Error> {
 	is_owner!(from);
@@ -100,7 +100,7 @@ pub fn handle_read(from: Address, offset: u32) -> Result<u8, Error> {
 		.ok_or(Error::OutOfBounds)
 }
 
-#[with_bindings]
+#[with_bindings(self)]
 #[wasm_bindgen]
 pub fn handle_write(from: Address, offset: u32, val: u8) {
 	assert_isowner!(from);
@@ -112,7 +112,7 @@ pub fn handle_write(from: Address, offset: u32, val: u8) {
 	}
 }
 
-#[with_bindings]
+#[with_bindings(self)]
 #[wasm_bindgen]
 pub fn handle_grow(from: Address, size: u32) {
 	assert_isowner!(from);
@@ -125,7 +125,7 @@ pub fn handle_grow(from: Address, size: u32) {
 	}
 }
 
-#[with_bindings]
+#[with_bindings(self)]
 #[wasm_bindgen]
 pub fn handle_shrink(from: Address, size: u32) {
 	assert_isowner!(from);
