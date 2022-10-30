@@ -1,5 +1,6 @@
-use std::{collections::HashMap, fmt::Display, sync::RwLock};
+use std::{collections::HashMap, sync::RwLock};
 
+use once_cell::sync::Lazy;
 use vision_derive::with_bindings;
 use vision_utils::types::Address;
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -9,7 +10,7 @@ extern "C" {
 	fn print(s: &str);
 }
 
-static mut ALIASES: RwLock<HashMap<Address, String>> = RwLock::new(HashMap::new());
+static ALIASES: Lazy<RwLock<HashMap<Address, String>>> = Lazy::new(|| RwLock::new(HashMap::new()));
 
 /// Registers an alias to display for the actor in messages.
 #[with_bindings]

@@ -13,20 +13,23 @@ pub fn start() {
 	rt.spawn(
 		None,
 		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_permissions.wasm"),
+		false,
 	)
-	.unwrap("Failed to start permissions service");
+	.expect("Failed to start permissions service");
 
 	// Allocator service
 	rt.spawn(
 		None,
 		include_bytes!("../../target/wasm32-unknown-unknkown/release/beacon_dao_allocator.wasm"),
+		false,
 	)
-	.unwrap("Failed to start allocator service");
+	.expect("Failed to start allocator service");
 
 	// Logging service
 	rt.spawn(
 		None,
 		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_logger.wasm"),
+		true,
 	)
 	.expect("Failed to start logging service");
 
@@ -35,7 +38,9 @@ pub fn start() {
 	rt.spawn(
 		None,
 		include_bytes!("../../target/wasm32-unknown-unknown/release/hello_world_alloc.wasm"),
-	);
+		false,
+	)
+	.expect("Failed to start hello world service");
 
 	// Test out the hello world module
 	rt.impulse("test", vec![]);

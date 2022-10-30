@@ -39,6 +39,7 @@ pub trait Runtime<'a> {
 		&'a self,
 		spawner: Option<Address>,
 		module: impl AsRef<[u8]> + 'a,
+		privileged: bool,
 	) -> Result<Address, Error>;
 
 	/// Sends a simulated message to all actors that implement handlers for it.

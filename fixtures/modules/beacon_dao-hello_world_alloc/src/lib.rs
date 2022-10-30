@@ -8,10 +8,10 @@ use_info!();
 
 #[wasm_bindgen]
 pub fn init(parent: Address) {
-	alias_service("Test Actor".to_owned());
+	alias_service(3, "Test Actor".to_owned());
 }
 
 #[wasm_bindgen]
 pub fn handle_test(from: Address) {
-	info("Bro".to_owned());
+	info(3, "Bro".to_owned());
 }

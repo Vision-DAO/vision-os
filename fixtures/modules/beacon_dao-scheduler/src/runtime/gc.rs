@@ -9,10 +9,17 @@ use std::{
 };
 
 use snafu::{NoneError, ResultExt};
+use wasm_bindgen::prelude::wasm_bindgen;
 use wasmer::{
 	Array, Function, Instance, Module, RuntimeError, Store, Type, Val, Value, WasmCell, WasmPtr,
 	WasmerEnv,
 };
+
+#[wasm_bindgen]
+extern "C" {
+	#[wasm_bindgen(js_namespace = console)]
+	fn log(s: &str);
+}
 
 /// A naive garbage-collected implementation of the VVM scheduler.
 #[derive(WasmerEnv, Clone)]
@@ -54,6 +61,16 @@ impl Default for Rt<'_> {
 }
 
 impl Rt<'_> {
+	fn log_safe(msg: WasmPtr<u8, Array>) {
+		for i in 0.. {
+			msg.deref()
+		}
+
+		unsafe {
+			log(msg);
+		}
+	}
+
 	fn do_send_message(
 		&self,
 		from: Address,
@@ -128,7 +145,7 @@ impl Rt<'_> {
 
 			child.src
 		};
-		self.spawn(spawner, src).ok()
+		self.spawn(spawner, src, false).ok()
 	}
 
 	fn send_message(
@@ -154,6 +171,7 @@ impl<'a> Runtime<'a> for Rt<'a> {
 		&'a self,
 		spawner: Option<Address>,
 		src: impl AsRef<[u8]> + 'a,
+		privileged: bool,
 	) -> Result<Address, Error> {
 		let mut slots = self
 			.free_slots
@@ -199,14 +217,27 @@ impl<'a> Runtime<'a> for Rt<'a> {
 		);
 		let spawn_actor_fn = Function::new_native_with_env(&store, self.clone(), Self::spawn_actor);
 		let address_fn = Function::new_native(&store, move || slot);
-		let imports = wasmer::imports! {
-			"" => {
-				"send_message" => send_message_fn,
-				"spawn_actor" => spawn_actor_fn,
+		let imports = if privileged {
+			wasmer::imports! {
+				"" => {
+					"send_message" => send_message_fn,
+					"spawn_actor" => spawn_actor_fn,
 
-				// Gets the address of the calling actor
-				"address" => address_fn,
-			},
+					// Gets the address of the calling actor
+					"address" => address_fn,
+					"print" => Function::new_native(&store, Self::log_safe),
+				},
+			}
+		} else {
+			wasmer::imports! {
+				"" => {
+					"send_message" => send_message_fn,
+					"spawn_actor" => spawn_actor_fn,
+
+					// Gets the address of the calling actor
+					"address" => address_fn,
+				},
+			}
 		};
 
 		// Initialize an actor for the module, and call its initializer
