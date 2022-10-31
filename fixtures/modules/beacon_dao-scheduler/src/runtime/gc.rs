@@ -23,9 +23,9 @@ extern "C" {
 
 /// A naive garbage-collected implementation of the VVM scheduler.
 #[derive(WasmerEnv, Clone)]
-pub struct Rt<'a> {
+pub struct Rt {
 	// Current running processes.
-	children: Arc<RwLock<Vec<Option<Actor<'a>>>>>,
+	children: Arc<RwLock<Vec<Option<Actor>>>>,
 
 	// Process slots that have been freed, and are available for use
 	free_slots: Arc<RwLock<Vec<Address>>>,
@@ -34,14 +34,14 @@ pub struct Rt<'a> {
 /// A handle to the runtime exposed to runtime API methods allowing
 /// address introspection.
 #[derive(WasmerEnv, Clone)]
-pub struct RtContext<'a>(Rt<'a>, Address);
+pub struct RtContext(Rt, Address);
 
 /// The source code of an actor, and its current state.
-struct Actor<'a> {
+struct Actor {
 	module: Module,
 	instance: Instance,
 	store: Store,
-	src: &'a [u8],
+	src: Vec<u8>,
 }
 
 fn type_size(ty: impl Deref<Target = Type>) -> u32 {
@@ -56,7 +56,7 @@ fn type_size(ty: impl Deref<Target = Type>) -> u32 {
 	}
 }
 
-impl Default for Rt<'_> {
+impl Default for Rt {
 	fn default() -> Self {
 		Self {
 			children: Arc::new(RwLock::new(Vec::new())),
@@ -65,7 +65,7 @@ impl Default for Rt<'_> {
 	}
 }
 
-impl Rt<'_> {
+impl Rt {
 	fn do_log_safe(env: &RtContext, msg: WasmPtr<u8, Array>) -> Option<()> {
 		// Get the memory of the module calling log, and read the message they
 		// want to log from memory
@@ -75,9 +75,7 @@ impl Rt<'_> {
 		let msg =
 			get_utf8_string_with_nul(msg, self_module.instance.exports.get_memory("memory").ok()?)?;
 
-		unsafe {
-			log(msg.as_str());
-		}
+		log(msg.as_str());
 
 		Some(())
 	}
@@ -108,7 +106,7 @@ impl Rt<'_> {
 		let handler = recv.instance.exports.get_function(msg_name.as_str()).ok()?;
 
 		// Deref args expected by the handler from the message buffer
-		let (mut args, _) = handler.ty().params()[1..].iter().fold(
+		let (args, _) = handler.ty().params()[1..].iter().fold(
 			([Value::I32(from as i32)].to_vec(), 0),
 			|(mut accum, pos), arg| {
 				let arg_size = type_size(arg);
@@ -148,18 +146,17 @@ impl Rt<'_> {
 			},
 		);
 
-		handler.call(args.as_slice());
+		handler.call(args.as_slice()).unwrap();
 
 		Some(())
 	}
 
 	fn do_spawn_actor(&self, spawner: Option<Address>, addr: Address) -> Option<Address> {
-		let src = {
-			let children = self.children.read().ok()?;
-			let child = children.get(addr as usize)?.as_ref()?;
+		let children = self.children.read().ok()?;
+		let child = children.get(addr as usize)?.as_ref()?;
 
-			child.src
-		};
+		let src = &child.src;
+
 		self.spawn(spawner, src, false).ok()
 	}
 
@@ -181,11 +178,11 @@ impl Rt<'_> {
 	}
 }
 
-impl<'a> Runtime<'a> for Rt<'a> {
+impl Runtime for Rt {
 	fn spawn(
-		&'a self,
+		&self,
 		spawner: Option<Address>,
-		src: impl AsRef<[u8]> + 'a,
+		src: impl AsRef<[u8]>,
 		privileged: bool,
 	) -> Result<Address, Error> {
 		let mut slots = self
@@ -214,7 +211,7 @@ impl<'a> Runtime<'a> for Rt<'a> {
 		};
 
 		let store = Store::default();
-		let module = Module::new(&store, src)
+		let module = Module::new(&store, src.as_ref())
 			.map_err(|_| NoneError)
 			.context(CompileSnafu)
 			.context(ModuleSnafu)?;
@@ -262,12 +259,12 @@ impl<'a> Runtime<'a> for Rt<'a> {
 				.context(InstantiationSnafu)
 				.context(ModuleSnafu)?,
 			module,
-			src: src.as_ref(),
+			src: src.as_ref().to_vec(),
 		};
 
 		if let Ok(init) = actor.instance.exports.get_function("init") {
 			if let Some(addr) = spawner {
-				init.call(&[Value::I32(addr as i32)]);
+				init.call(&[Value::I32(addr as i32)]).unwrap();
 			}
 		}
 
