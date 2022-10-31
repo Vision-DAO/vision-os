@@ -81,7 +81,7 @@ pub fn handle_allocate(from: Address, size: u32) -> Result<Address, Error> {
 	Ok(memcell)
 }
 
-#[cfg(feature = "wasm")]
+#[cfg(feature = "module")]
 #[wasm_bindgen]
 pub fn init(owner: Address) {
 	if let Ok(mut lock) = OWNER.write() {

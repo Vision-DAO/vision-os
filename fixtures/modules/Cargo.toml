@@ -9,6 +9,9 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib"]
 
+[features]
+module = []
+
 [workspace]
 members = ["beacon_dao-hello_world", "beacon_dao-permissions", "beacon_dao-logger", "beacon_dao-allocator", "beacon_dao-hello_world_alloc", "beacon_dao-scheduler"]
 

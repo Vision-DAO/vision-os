@@ -14,6 +14,6 @@ module = []
 wasm-bindgen = "0.2"
 wasm-bindgen-test = "0.3.0"
 web-sys = { version = "0.3.58", features = ["console"] }
-vision-utils = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git" }
-vision-derive = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git" }
-beacon_dao-logger = { path = "../beacon_dao-logger" }
+vision-utils = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git", features = [] }
+vision-derive = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git", features = [] }
+beacon_dao-logger = { path = "../beacon_dao-logger", features = [] }
