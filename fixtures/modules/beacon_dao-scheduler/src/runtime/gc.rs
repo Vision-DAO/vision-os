@@ -31,6 +31,11 @@ pub struct Rt<'a> {
 	free_slots: Arc<RwLock<Vec<Address>>>,
 }
 
+/// A handle to the runtime exposed to runtime API methods allowing
+/// address introspection.
+#[derive(WasmerEnv, Clone)]
+pub struct RtContext<'a>(Rt<'a>, Address);
+
 /// The source code of an actor, and its current state.
 struct Actor<'a> {
 	module: Module,
@@ -61,14 +66,24 @@ impl Default for Rt<'_> {
 }
 
 impl Rt<'_> {
-	fn log_safe(msg: WasmPtr<u8, Array>) {
-		for i in 0.. {
-			msg.deref()
-		}
+	fn do_log_safe(env: &RtContext, msg: WasmPtr<u8, Array>) -> Option<()> {
+		// Get the memory of the module calling log, and read the message they
+		// want to log from memory
+		let children = env.0.children.read().ok()?;
+		let self_module = children.get(env.1 as usize).map(Option::as_ref).flatten()?;
+
+		let msg =
+			get_utf8_string_with_nul(msg, self_module.instance.exports.get_memory("memory").ok()?)?;
 
 		unsafe {
-			log(msg);
+			log(msg.as_str());
 		}
+
+		Some(())
+	}
+
+	fn log_safe(env: &RtContext, msg: WasmPtr<u8, Array>) {
+		Self::do_log_safe(env, msg).unwrap();
 	}
 
 	fn do_send_message(
@@ -225,7 +240,7 @@ impl<'a> Runtime<'a> for Rt<'a> {
 
 					// Gets the address of the calling actor
 					"address" => address_fn,
-					"print" => Function::new_native(&store, Self::log_safe),
+					"print" => Function::new_native_with_env(&store, RtContext(self.clone(), slot), Self::log_safe),
 				},
 			}
 		} else {
