@@ -16,3 +16,4 @@ module = []
 wasm-bindgen = "0.2"
 wasmer = { version = "2.3.0", features = ["js", "std", "wasm-types-polyfill"], default-features = false }
 snafu = "0.7.1"
+console_error_panic_hook = "0.1.7"

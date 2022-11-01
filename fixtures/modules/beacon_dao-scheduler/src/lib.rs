@@ -2,11 +2,13 @@ pub mod common;
 pub mod runtime;
 
 use runtime::{gc::Rt, Runtime};
-use std::default::Default;
+use std::{default::Default, panic};
 use wasm_bindgen::prelude::wasm_bindgen;
 
 #[wasm_bindgen]
 pub fn start() {
+	panic::set_hook(Box::new(console_error_panic_hook::hook));
+
 	let rt = Rt::default();
 
 	// Permissions service
