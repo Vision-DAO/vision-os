@@ -217,7 +217,7 @@ impl Runtime for Rt {
 			.context(ModuleSnafu)?;
 
 		// Create methods for the WASM module that allow spawning and sending
-		let send_message_fn = Function::new_native_with_env(
+		let send_message_fn = Function::new_with_env(
 			&store,
 			self.clone(),
 			move |env: &Rt,
@@ -228,7 +228,7 @@ impl Runtime for Rt {
 			},
 		);
 		let spawn_actor_fn = Function::new_native_with_env(&store, self.clone(), Self::spawn_actor);
-		let address_fn = Function::new_native(&store, move || slot);
+		let address_fn = Function::new(&store, move || slot);
 		let imports = if privileged {
 			wasmer::imports! {
 				"" => {
