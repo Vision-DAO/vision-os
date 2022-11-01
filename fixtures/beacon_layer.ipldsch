@@ -2,10 +2,12 @@
 type IdeaPayload struct {
 	## JavaScript evaluated to load the module. Includes module imports, for
 	## example
-	loader String
+	## Represented by a UnixFS file
+	loader Link
 
 	## The WASM module that should be executed through a `start` entrypoint
-	module Bytes
+	## Represented by a UnixFS file
+	module Link
 }
 
 ## Payload is a list of WASM modules, which are each WASM binaries

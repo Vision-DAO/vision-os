@@ -4,7 +4,7 @@ import { CID } from "multiformats/cid";
  * A basic payload for the Beacon DAO that specifies a void entrypoint, start.
  */
 export interface Payload {
-	start(): void
+	start(): void;
 }
 
 /**
@@ -12,24 +12,24 @@ export interface Payload {
  * that can call the entrypoint method.
  */
 export interface PayloadLoader {
-	default: (module: Uint8Array) => Promise<Payload>,
+	default: (module: Uint8Array) => Promise<Payload>;
 }
 
 /**
  * Binary representation of a WASM program.
  */
 export interface IdeaPayload {
-	loader: string,
-	module: Uint8Array,
+	loader: CID;
+	module: CID;
 }
 
 /**
  * Content, and program payload of an Idea on Vision.
  */
 export interface IdeaMetadata {
-	title: string,
-	description: string,
-	payload: CID[],
+	title: string;
+	description: string;
+	payload: CID[];
 }
 
 /**
@@ -41,6 +41,6 @@ export type ProposalPayload = CID;
  * Content of a proposal itself.
  */
 export interface ProposalMetadata {
-	title: string,
-	description: string,
+	title: string;
+	description: string;
 }

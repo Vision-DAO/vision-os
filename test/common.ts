@@ -1,5 +1,5 @@
 import { IdeaPayload, IdeaMetadata } from "../types/schema";
-import { Idea } from "../types/contracts/Idea"
+import { Idea } from "../types/contracts/Idea";
 import { Proposal } from "../types/contracts/Prop.sol/Proposal";
 import { ethers, waffle } from "hardhat";
 import { parse as parseSchema, Schema } from "ipld-schema";
@@ -48,19 +48,25 @@ export const TEST_PROP = {
  * The path to the file containing an IPLD schema to parse describing Vision
  * metadata.
  */
-export const SCHEMA_PATH: string = path.resolve(process.env.SCHEMA_PATH || "fixtures/beacon_layer.ipldsch");
+export const SCHEMA_PATH: string = path.resolve(
+	process.env.SCHEMA_PATH || "fixtures/beacon_layer.ipldsch"
+);
 
 /**
  * The path to a directory of .wasm files that should be loaded for testing
  * purposes. No extensive testing of these modules' functionality is performed.
  */
-export const MODULES_PATH: string = path.resolve(process.env.MODULES_PATH || "fixtures/modules");
+export const MODULES_PATH: string = path.resolve(
+	process.env.MODULES_PATH || "fixtures/modules"
+);
 
 /**
  * wasm-pack will stubbornly compile the root src/lib.rs for the modules
  * fixture, but we don't want to actually run it.
  */
-export const MODULE_IGNORES: string[] = (process.env.MODULE_IGNORES || "").split(" ");
+export const MODULE_IGNORES: string[] = (
+	process.env.MODULE_IGNORES || ""
+).split(" ");
 
 /**
  * The paths to every WASM module that can be used by the testing suite.
@@ -71,14 +77,26 @@ export const MODULES: [string, string][] = fs
 	// Accept only modules written in Rust under the workspace designated by
 	// MODULES_PATH
 	.map((dir) => path.resolve(MODULES_PATH, dir.name))
-	.filter((path) =>
-		!(path in MODULE_IGNORES))
+	.filter((path) => !(path in MODULE_IGNORES))
 	// Make sure the directory has a WASM output folder
 	.filter((path) => fs.readdirSync(path).some((path) => path === "pkg"))
-	.map((p) => fs.readdirSync(path.resolve(p, "pkg")).map((child) => path.resolve(p, "pkg", child)))
+	.map((p) =>
+		fs
+			.readdirSync(path.resolve(p, "pkg"))
+			.map((child) => path.resolve(p, "pkg", child))
+	)
 	// All modules must have a WASM binary and a JS loader
-	.map((binaries) => [binaries.find((bin) => bin.includes(".wasm")), binaries.find((bin) => bin.includes(".js"))] as [string | undefined, string | undefined])
-	.filter(([l, r]) => l !== undefined && r !== undefined) as [string, string][];
+	.map(
+		(binaries) =>
+			[
+				binaries.find((bin) => bin.includes(".wasm")),
+				binaries.find((bin) => bin.includes(".js")),
+			] as [string | undefined, string | undefined]
+	)
+	.filter(([l, r]) => l !== undefined && r !== undefined) as [
+	string,
+	string
+][];
 
 /**
  * The IPLD schema used for validating compatibility with test methodology.
@@ -88,32 +106,47 @@ export const SCHEMA: string = fs.readFileSync(SCHEMA_PATH, "utf-8");
 /**
  * Executes a test for every WASM module loaded for testing.
  */
-export const forAllModules = async (fn: (module: IdeaPayload) => Promise<void>) => {
+export const forAllModules = async (
+	ipfs: IPFSClient,
+	fn: (module: IdeaPayload) => Promise<void>
+) => {
 	for (const [modPath, loaderPath] of MODULES) {
 		const modContents = fs.readFileSync(modPath);
 		const loader = fs.readFileSync(loaderPath);
 
 		await fn({
-			module: modContents,
-			loader: loader.toString(),
+			module: (await ipfs.add(modContents)).cid,
+			loader: (await ipfs.add(loader)).cid,
 		});
 	}
-}
+};
 
 /**
  * Executes a test for every WASM module uploaded for testing.
  */
-export const forAllModuleCIDs = async (ipfs: IPFSClient, fn: (module: CID) => Promise<void>) => {
-	forAllModules(async (payload) => {
-		await fn (await ipfs.dag.put(payload));
+export const forAllModuleCIDs = async (
+	ipfs: IPFSClient,
+	fn: (module: CID) => Promise<void>
+) => {
+	forAllModules(ipfs, async (payload) => {
+		await fn(await ipfs.dag.put(payload));
 	});
-}
+};
 
 /**
  * Executes a test with an injected IPFS, schema, module CID, and default
  * metadata for every loaded module.
  */
-export const forAllModuleFixtures = async (fn: (env: { ipfs: IPFSClient, schema: Schema, payload: IdeaMetadata, idea: Idea, prop: Proposal, payloadCid: CID }) => Promise<void>) => {
+export const forAllModuleFixtures = async (
+	fn: (env: {
+		ipfs: IPFSClient;
+		schema: Schema;
+		payload: IdeaMetadata;
+		idea: Idea;
+		prop: Proposal;
+		payloadCid: CID;
+	}) => Promise<void>
+) => {
 	const { ipfs, schema } = await loadFixture(fixture);
 
 	await forAllModuleCIDs(ipfs, async (modCid) => {
@@ -128,23 +161,31 @@ export const forAllModuleFixtures = async (fn: (env: { ipfs: IPFSClient, schema:
 		const newPayload: IdeaMetadata = {
 			title: TEST_DAO.altTitle,
 			description: TEST_DAO.altDescription,
-			payload:  [modCid],
+			payload: [modCid],
 		};
 
 		const { prop, payloadCid } = await propFixture(idea, newPayload, ipfs);
 
 		await fn({ ipfs, schema, payload, idea, prop, payloadCid });
-	})
+	});
 };
 
 /**
  * Utility function used by hardhat to load common trappings of the testing
  * harness.
  */
-export const fixture = async (): Promise<{ address: string, ipfs: IPFSClient, schema: Schema }> => {
+export const fixture = async (): Promise<{
+	address: string;
+	ipfs: IPFSClient;
+	schema: Schema;
+}> => {
 	// Make sure not to save state between any IPFS instances by using
 	// multiple, disjointed repos
-	return { address: (await ethers.getSigners())[0].address, ipfs: await create({ repo: `/var/tmp/ipfs_${Math.random() * 100}` }), schema: parseSchema(SCHEMA) };
+	return {
+		address: (await ethers.getSigners())[0].address,
+		ipfs: await create({ repo: `/var/tmp/ipfs_${Math.random() * 100}` }),
+		schema: parseSchema(SCHEMA),
+	};
 };
 
 /**
@@ -152,9 +193,18 @@ export const fixture = async (): Promise<{ address: string, ipfs: IPFSClient, sc
  * testing proposals.
  */
 export const governorFixture = async (ipfs: IPFSClient): Promise<Idea> => {
-	const originalPayload = await ipfs.dag.put({ title: TEST_DAO.title, description: TEST_DAO.description, payload: [] } as IdeaMetadata)
+	const originalPayload = await ipfs.dag.put({
+		title: TEST_DAO.title,
+		description: TEST_DAO.description,
+		payload: [],
+	} as IdeaMetadata);
 	const Idea = await ethers.getContractFactory("Idea");
-	const idea = await Idea.deploy(TEST_DAO.title, TEST_DAO.symbol, TEST_DAO.supply, originalPayload.toString());
+	const idea = await Idea.deploy(
+		TEST_DAO.title,
+		TEST_DAO.symbol,
+		TEST_DAO.supply,
+		originalPayload.toString()
+	);
 
 	return await idea.deployed();
 };
@@ -163,17 +213,26 @@ export const governorFixture = async (ipfs: IPFSClient): Promise<Idea> => {
  * Deploys a proposal owned by the first signer, and governed by the
  * given contract.
  */
-export const propFixture = async (gov: Idea, payload: IdeaMetadata, ipfs: IPFSClient): Promise<{ prop: Proposal, payloadCid: CID }> => {
+export const propFixture = async (
+	gov: Idea,
+	payload: IdeaMetadata,
+	ipfs: IPFSClient
+): Promise<{ prop: Proposal; payloadCid: CID }> => {
 	// Deploy a new payload for the Proposal changing the title, description,
 	// and binary payload
-	const payloadCid = await ipfs.dag.put(payload)
+	const payloadCid = await ipfs.dag.put(payload);
 
 	// Deploy metadata for the Proposal
 	const cid = await ipfs.dag.put(TEST_PROP.meta);
 
 	// Deploy a proposal to change the DAO's payload to something new
 	const Proposal = await ethers.getContractFactory("Proposal");
-	const prop = await Proposal.deploy(cid.toString(), payloadCid.toString(), TEST_PROP.duration, gov.address);
+	const prop = await Proposal.deploy(
+		cid.toString(),
+		payloadCid.toString(),
+		TEST_PROP.duration,
+		gov.address
+	);
 	await prop.deployed();
 
 	return { prop, payloadCid };

@@ -3,7 +3,14 @@ import { expect, assert } from "chai";
 import { describe } from "mocha";
 
 import { IdeaMetadata, IdeaPayload } from "../types/schema";
-import { IPFSClient, forAllModules, forAllModuleCIDs, TEST_DAO, fixture, MODULES } from "./common";
+import {
+	IPFSClient,
+	forAllModules,
+	forAllModuleCIDs,
+	TEST_DAO,
+	fixture,
+	MODULES,
+} from "./common";
 
 import { Schema } from "ipld-schema";
 import { CID } from "multiformats/cid";
@@ -26,7 +33,8 @@ const { loadFixture } = waffle;
 describe("Idea", () => {
 	describe("IdeaPayload schema", () => {
 		it("Should be uploadable from a Uint8Array", async () => {
-			const { ipfs, schema }: { ipfs: IPFSClient, schema: Schema } = await loadFixture(fixture);
+			const { ipfs, schema }: { ipfs: IPFSClient; schema: Schema } =
+				await loadFixture(fixture);
 			const validator = createValidator(schema, "IdeaPayload");
 
 			// Make sure each module can be treated as a schema instance
@@ -44,7 +52,9 @@ describe("Idea", () => {
 			// exactly the same
 			await forAllModules(async (mod) => {
 				const cid = await ipfs.dag.put(mod as IdeaPayload);
-				const retrieved = await ipfs.dag.get(cid).then((res) => res.value) as IdeaPayload;
+				const retrieved = (await ipfs.dag
+					.get(cid)
+					.then((res) => res.value)) as IdeaPayload;
 
 				expect(validator(retrieved)).to.be.true;
 				expect(mod).to.eql(retrieved);
@@ -61,14 +71,19 @@ describe("Idea", () => {
 
 			// Payloads have the WASM modules themselves, and the JS used to attach
 			// them
-			const combinedPayload: IdeaPayload[] = await Promise.all(MODULES.map(([mod, loader]) => { return {
-					loader: fs.readFileSync(loader).toString(),
-					module: fs.readFileSync(mod),
-				};
-			}));
+			const combinedPayload: IdeaPayload[] = await Promise.all(
+				MODULES.map(([mod, loader]) => {
+					return {
+						loader: fs.readFileSync(loader).toString(),
+						module: fs.readFileSync(mod),
+					};
+				})
+			);
 
 			// Payloads are not written in-line, they are stored via CID references
-			const payloadCIDs: CID[] = await Promise.all(combinedPayload.map((payload) => ipfs.dag.put(payload)));
+			const payloadCIDs: CID[] = await Promise.all(
+				combinedPayload.map((payload) => ipfs.dag.put(payload))
+			);
 
 			const exampleMetadata: IdeaMetadata = {
 				title: TEST_DAO.title,
@@ -86,13 +101,18 @@ describe("Idea", () => {
 			const validator = createValidator(schema, "IdeaMetadata");
 
 			// Test making a metadata object and retrieving it from IPFS
-			const combinedPayload: IdeaPayload[] = await Promise.all(MODULES.map(([mod, loader]) => { return {
-					loader: fs.readFileSync(loader).toString(),
-					module: fs.readFileSync(mod),
-				};
-			}));
+			const combinedPayload: IdeaPayload[] = await Promise.all(
+				MODULES.map(([mod, loader]) => {
+					return {
+						loader: fs.readFileSync(loader).toString(),
+						module: fs.readFileSync(mod),
+					};
+				})
+			);
 
-			const payloadCIDs: CID[] = await Promise.all(combinedPayload.map((payload) => ipfs.dag.put(payload)));
+			const payloadCIDs: CID[] = await Promise.all(
+				combinedPayload.map((payload) => ipfs.dag.put(payload))
+			);
 			const exampleMetadata: IdeaMetadata = {
 				title: TEST_DAO.title,
 				payload: payloadCIDs,
@@ -100,7 +120,9 @@ describe("Idea", () => {
 			};
 
 			const cid = await ipfs.dag.put(exampleMetadata);
-			const retrieved = await ipfs.dag.get(cid).then((res) => res.value) as IdeaMetadata;
+			const retrieved = (await ipfs.dag
+				.get(cid)
+				.then((res) => res.value)) as IdeaMetadata;
 
 			expect(validator(retrieved)).to.be.true;
 			expect(exampleMetadata).to.eql(retrieved);
@@ -125,7 +147,12 @@ describe("Idea", () => {
 
 			// Deploy a DAO using the selected WASM module
 			const Idea = await ethers.getContractFactory("Idea");
-			const idea = await Idea.deploy(TEST_DAO.title, TEST_DAO.symbol, TEST_DAO.supply, cid.toString());
+			const idea = await Idea.deploy(
+				TEST_DAO.title,
+				TEST_DAO.symbol,
+				TEST_DAO.supply,
+				cid.toString()
+			);
 
 			expect(await idea.deployed()).to.not.be.empty;
 
@@ -138,14 +165,18 @@ describe("Idea", () => {
 
 			// Ensure that the Idea's payload and metadata is intact
 			const metaVerifier = createValidator(schema, "IdeaMetadata");
-			const metadata = await ipfs.dag.get(onChainMeta).then((res) => res.value) as IdeaMetadata;
+			const metadata = (await ipfs.dag
+				.get(onChainMeta)
+				.then((res) => res.value)) as IdeaMetadata;
 
 			expect(metaVerifier(metadata)).to.be.true;
 			expect(metadata.title).to.equal(TEST_DAO.title);
 			expect(metadata.description).to.equal(TEST_DAO.description);
 
 			const payloadVerifier = createValidator(schema, "IdeaPayload");
-			const payload = await ipfs.dag.get(metadata.payload[0]).then((res) => res.value);
+			const payload = await ipfs.dag
+				.get(metadata.payload[0])
+				.then((res) => res.value);
 
 			expect(payloadVerifier(payload)).to.be.true;
 			expect(payload).to.eql(mod);
@@ -160,7 +191,7 @@ describe("Idea", () => {
 	// Idea is an ERC-20, so it should be transferrable between accounts
 	it("Should be transferrable", async () => {
 		const { ipfs } = await loadFixture(fixture);
-		const [sender, recipient,] = await ethers.getSigners();
+		const [sender, recipient] = await ethers.getSigners();
 
 		// Try:
 		// - A valid transaction
@@ -175,20 +206,28 @@ describe("Idea", () => {
 			const cid = await ipfs.dag.put(meta);
 
 			const Idea = await ethers.getContractFactory("Idea");
-			const idea = await Idea.deploy(TEST_DAO.title, TEST_DAO.symbol, TEST_DAO.supply, cid.toString());
+			const idea = await Idea.deploy(
+				TEST_DAO.title,
+				TEST_DAO.symbol,
+				TEST_DAO.supply,
+				cid.toString()
+			);
 			await idea.deployed();
 
 			// The user should be able to make the transaction once if they spend
 			// all their balance
-			await expect(idea.transfer(recipient.address, TEST_DAO.supply))
-				.to.emit(idea, "Transfer");
-			await expect(idea.transfer(recipient.address, TEST_DAO.supply))
-				.to.be.reverted;
+			await expect(
+				idea.transfer(recipient.address, TEST_DAO.supply)
+			).to.emit(idea, "Transfer");
+			await expect(idea.transfer(recipient.address, TEST_DAO.supply)).to
+				.be.reverted;
 
 			// The user's new balance should be zero, and the recipient's balance
 			// should be the supply
 			expect(await idea.balanceOf(sender.address)).to.equal(0);
-			expect(await idea.balanceOf(recipient.address)).to.equal(TEST_DAO.supply);
+			expect(await idea.balanceOf(recipient.address)).to.equal(
+				TEST_DAO.supply
+			);
 		});
 	});
 });
