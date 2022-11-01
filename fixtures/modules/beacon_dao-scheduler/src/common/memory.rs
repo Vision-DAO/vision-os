@@ -1,8 +1,8 @@
-use wasmer::{Array, Memory, ValueType, WasmPtr};
+use wasmer::{Memory, ValueType, WasmPtr};
 
 /// Comes from wasmer. Not exported in JS target.
 pub fn get_utf8_string_with_nul<'a, T: Copy + ValueType>(
-	ptr: WasmPtr<T, Array>,
+	ptr: WasmPtr<T>,
 	memory: &'a Memory,
 ) -> Option<String> {
 	unsafe {

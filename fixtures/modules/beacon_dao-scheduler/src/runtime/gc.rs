@@ -11,8 +11,7 @@ use std::{
 use snafu::{NoneError, ResultExt};
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasmer::{
-	Array, Function, Instance, Module, RuntimeError, Store, Type, Val, Value, WasmCell, WasmPtr,
-	WasmerEnv,
+	Function, Instance, Module, RuntimeError, Store, Type, Val, Value, WasmCell, WasmPtr, WasmerEnv,
 };
 
 #[wasm_bindgen]
@@ -66,7 +65,7 @@ impl Default for Rt {
 }
 
 impl Rt {
-	fn do_log_safe(env: &RtContext, msg: WasmPtr<u8, Array>) -> Option<()> {
+	fn do_log_safe(env: &RtContext, msg: WasmPtr<u8>) -> Option<()> {
 		// Get the memory of the module calling log, and read the message they
 		// want to log from memory
 		let children = env.0.children.read().ok()?;
@@ -80,7 +79,7 @@ impl Rt {
 		Some(())
 	}
 
-	fn log_safe(env: &RtContext, msg: WasmPtr<u8, Array>) {
+	fn log_safe(env: &RtContext, msg: WasmPtr<u8>) {
 		Self::do_log_safe(env, msg).unwrap();
 	}
 
@@ -88,8 +87,8 @@ impl Rt {
 		&self,
 		from: Address,
 		addr: Address,
-		msg_name_buf: WasmPtr<u8, Array>,
-		msg_buf: WasmPtr<u8, Array>,
+		msg_name_buf: WasmPtr<u8>,
+		msg_buf: WasmPtr<u8>,
 	) -> Option<()> {
 		let children = self.children.read().ok()?;
 
@@ -164,8 +163,8 @@ impl Rt {
 		env: &Rt,
 		from: Address,
 		addr: Address,
-		msg_name_buf: WasmPtr<u8, Array>,
-		msg_buf: WasmPtr<u8, Array>,
+		msg_name_buf: WasmPtr<u8>,
+		msg_buf: WasmPtr<u8>,
 	) {
 		// Ensures that provided addresses aren't the root service
 		if let Some((from, addr)) = NonZeroU32::new(from).zip(NonZeroU32::new(addr)) {
@@ -217,18 +216,15 @@ impl Runtime for Rt {
 			.context(ModuleSnafu)?;
 
 		// Create methods for the WASM module that allow spawning and sending
-		let send_message_fn = Function::new_with_env(
+		let send_message_fn = Function::new_native_with_env(
 			&store,
 			self.clone(),
-			move |env: &Rt,
-			      addr: Address,
-			      msg_name_buf: WasmPtr<u8, Array>,
-			      msg_buf: WasmPtr<u8, Array>| {
+			move |env: &Rt, addr: Address, msg_name_buf: WasmPtr<u8>, msg_buf: WasmPtr<u8>| {
 				Self::send_message(env, slot, addr, msg_name_buf, msg_buf)
 			},
 		);
 		let spawn_actor_fn = Function::new_native_with_env(&store, self.clone(), Self::spawn_actor);
-		let address_fn = Function::new(&store, move || slot);
+		let address_fn = Function::new_native(&store, move || slot);
 		let imports = if privileged {
 			wasmer::imports! {
 				"" => {
