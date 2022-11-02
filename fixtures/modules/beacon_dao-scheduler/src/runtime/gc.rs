@@ -1,5 +1,5 @@
 use super::{CompileSnafu, Error, InstantiationSnafu, LockSnafu, ModuleSnafu, Runtime};
-use crate::common::{memory::get_utf8_string_with_nul, Address};
+use crate::common::Address;
 
 use std::{
 	fmt::Display,
@@ -11,7 +11,8 @@ use std::{
 use snafu::{NoneError, ResultExt};
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasmer::{
-	Function, Instance, Module, RuntimeError, Store, Type, Val, Value, WasmCell, WasmPtr, WasmerEnv,
+	Function, FunctionEnv, FunctionEnvMut, Instance, Module, RuntimeError, Store, Type, Val, Value,
+	WasmPtr, WasmRef,
 };
 
 #[wasm_bindgen]
@@ -21,7 +22,7 @@ extern "C" {
 }
 
 /// A naive garbage-collected implementation of the VVM scheduler.
-#[derive(WasmerEnv, Clone)]
+#[derive(Clone)]
 pub struct Rt {
 	// Current running processes.
 	children: Arc<RwLock<Vec<Option<Actor>>>>,
@@ -32,16 +33,21 @@ pub struct Rt {
 
 /// A handle to the runtime exposed to runtime API methods allowing
 /// address introspection.
-#[derive(WasmerEnv, Clone)]
+#[derive(Clone)]
 pub struct RtContext(Rt, Address);
 
 /// The source code of an actor, and its current state.
 struct Actor {
-	module: Module,
+	module: Arc<RwLock<Module>>,
 	instance: Instance,
 	store: Store,
 	src: Vec<u8>,
 }
+
+// This is fine because modules, which are usually !Send + !Sync, are wrapped in a lock
+// Citation: https://doc.rust-lang.org/nomicon/send-and-sync.html
+unsafe impl Send for Actor {}
+unsafe impl Sync for Actor {}
 
 fn type_size(ty: impl Deref<Target = Type>) -> u32 {
 	match *ty {
@@ -65,21 +71,32 @@ impl Default for Rt {
 }
 
 impl Rt {
-	fn do_log_safe(env: &RtContext, msg: WasmPtr<u8>) -> Option<()> {
+	fn do_log_safe(env: FunctionEnvMut<RtContext>, msg: WasmPtr<u8>) -> Option<()> {
 		// Get the memory of the module calling log, and read the message they
 		// want to log from memory
-		let children = env.0.children.read().ok()?;
-		let self_module = children.get(env.1 as usize).map(Option::as_ref).flatten()?;
+		let children = env.data().0.children.read().ok()?;
+		let self_module = children
+			.get(env.data().1 as usize)
+			.map(Option::as_ref)
+			.flatten()?;
 
-		let msg =
-			get_utf8_string_with_nul(msg, self_module.instance.exports.get_memory("memory").ok()?)?;
+		let msg = msg
+			.read_utf8_string_with_nul(
+				&self_module
+					.instance
+					.exports
+					.get_memory("memory")
+					.ok()?
+					.view(&self_module.store),
+			)
+			.ok()?;
 
 		log(msg.as_str());
 
 		Some(())
 	}
 
-	fn log_safe(env: &RtContext, msg: WasmPtr<u8>) {
+	fn log_safe(env: FunctionEnvMut<RtContext>, msg: WasmPtr<u8>) {
 		Self::do_log_safe(env, msg).unwrap();
 	}
 
@@ -90,28 +107,46 @@ impl Rt {
 		msg_name_buf: WasmPtr<u8>,
 		msg_buf: WasmPtr<u8>,
 	) -> Option<()> {
-		let children = self.children.read().ok()?;
+		let mut children = self.children.write().ok()?;
 
-		// Get the message name from the sender, and call the receiver's handler
-		let sender = children.get(from as usize).map(Option::as_ref).flatten()?;
-		let recv = children.get(addr as usize).map(Option::as_ref).flatten()?;
+		let msg_name = {
+			// Get the message name from the sender, and call the receiver's handler
+			let sender = children.get(from as usize).map(Option::as_ref).flatten()?;
 
-		let mut msg_name = get_utf8_string_with_nul(
-			msg_name_buf,
-			sender.instance.exports.get_memory("memory").ok()?,
-		)?;
-		msg_name.insert_str(0, "handle_");
+			let mut msg_name = msg_name_buf
+				.read_utf8_string_with_nul(
+					&sender
+						.instance
+						.exports
+						.get_memory("memory")
+						.ok()?
+						.view(&sender.store),
+				)
+				.ok()?;
+			msg_name.insert_str(0, "handle_");
+
+			msg_name
+		};
+
+		let recv = children
+			.get_mut(addr as usize)
+			.map(Option::as_mut)
+			.flatten()?;
 
 		let handler = recv.instance.exports.get_function(msg_name.as_str()).ok()?;
 
 		// Deref args expected by the handler from the message buffer
-		let (args, _) = handler.ty().params()[1..].iter().fold(
+		let (args, _) = handler.ty(&recv.store).params()[1..].iter().fold(
 			([Value::I32(from as i32)].to_vec(), 0),
 			|(mut accum, pos), arg| {
 				let arg_size = type_size(arg);
 
-				let parse_arg = |arg_val: Vec<WasmCell<'_, u8>>| {
-					let bytes = arg_val.iter().map(|cell| cell.get()).collect::<Vec<u8>>();
+				let parse_arg = |arg_val: Vec<WasmRef<'_, u8>>| {
+					let bytes = arg_val
+						.iter()
+						.map(|cell| cell.read())
+						.collect::<Result<Vec<u8>, _>>()
+						.ok()?;
 
 					match arg {
 						Type::I32 => Some(Value::I32(i32::from_le_bytes(bytes.try_into().ok()?))),
@@ -128,14 +163,24 @@ impl Rt {
 					}
 				};
 
-				if let Some(arg_val) = recv
-					.instance
-					.exports
-					.get_memory("memory")
-					.ok()
-					.and_then(|mem| msg_buf.deref(mem, pos as u32, arg_size))
-					.and_then(parse_arg)
-				{
+				if let Some(arg_val) =
+					recv.instance
+						.exports
+						.get_memory("memory")
+						.ok()
+						.and_then(|mem| {
+							let view = mem.view(&recv.store);
+
+							(0..(arg_size / 8))
+								.map(|i| {
+									msg_buf
+										.add_offset(pos + i as u32)
+										.map(|ptr| ptr.deref(&view))
+								})
+								.collect::<Result<Vec<WasmRef<'_, u8>>, _>>()
+								.ok()
+								.and_then(parse_arg)
+						}) {
 					accum.push(arg_val);
 
 					(accum, pos + arg_size)
@@ -145,7 +190,7 @@ impl Rt {
 			},
 		);
 
-		handler.call(args.as_slice()).unwrap();
+		handler.call(&mut recv.store, args.as_slice()).unwrap();
 
 		Some(())
 	}
@@ -172,8 +217,8 @@ impl Rt {
 		}
 	}
 
-	fn spawn_actor(env: &Rt, spawner: Address, addr: Address) -> Address {
-		env.do_spawn_actor(Some(spawner), addr).unwrap_or(0)
+	fn spawn_actor(env: FunctionEnvMut<Rt>, spawner: Address, addr: Address) -> Address {
+		env.data().do_spawn_actor(Some(spawner), addr).unwrap_or(0)
 	}
 }
 
@@ -209,22 +254,32 @@ impl Runtime for Rt {
 				.map(NonZeroU32::get)?
 		};
 
-		let store = Store::default();
+		let mut store = Store::default();
 		let module = Module::new(&store, src.as_ref())
 			.map_err(|_| NoneError)
 			.context(CompileSnafu)
 			.context(ModuleSnafu)?;
 
 		// Create methods for the WASM module that allow spawning and sending
-		let send_message_fn = Function::new_native_with_env(
-			&store,
-			self.clone(),
-			move |env: &Rt, addr: Address, msg_name_buf: WasmPtr<u8>, msg_buf: WasmPtr<u8>| {
-				Self::send_message(env, slot, addr, msg_name_buf, msg_buf)
+		let env = FunctionEnv::new(&mut store, self.clone());
+		let send_message_fn = Function::new_typed_with_env(
+			&mut store,
+			&env,
+			move |env: FunctionEnvMut<Rt>,
+			      to: u32,
+			      msg_name_ref: WasmPtr<u8>,
+			      msg_ref: WasmPtr<u8>| {
+				Self::send_message(env.data(), slot, to, msg_name_ref, msg_ref)
 			},
 		);
-		let spawn_actor_fn = Function::new_native_with_env(&store, self.clone(), Self::spawn_actor);
-		let address_fn = Function::new_native(&store, move || slot);
+		let env = FunctionEnv::new(&mut store, self.clone());
+		let spawn_actor_fn = Function::new_typed_with_env(
+			&mut store,
+			&env,
+			move |env: FunctionEnvMut<Rt>, address: Address| Self::spawn_actor(env, slot, address),
+		);
+		let address_fn = Function::new_typed(&mut store, move || slot);
+		let env = FunctionEnv::new(&mut store, RtContext(self.clone(), slot));
 		let imports = if privileged {
 			wasmer::imports! {
 				"" => {
@@ -233,7 +288,7 @@ impl Runtime for Rt {
 
 					// Gets the address of the calling actor
 					"address" => address_fn,
-					"print" => Function::new_native_with_env(&store, RtContext(self.clone(), slot), Self::log_safe),
+					"print" => Function::new_typed_with_env(&mut store, &env, Self::log_safe),
 				},
 			}
 		} else {
@@ -248,21 +303,23 @@ impl Runtime for Rt {
 			}
 		};
 
-		// Initialize an actor for the module, and call its initializer
-		let actor = Actor {
-			store,
-			instance: Instance::new(&module, &imports)
-				.context(InstantiationSnafu)
-				.context(ModuleSnafu)?,
-			module,
-			src: src.as_ref().to_vec(),
-		};
+		let instance = Instance::new(&mut store, &module, &imports)
+			.context(InstantiationSnafu)
+			.context(ModuleSnafu)?;
 
-		if let Ok(init) = actor.instance.exports.get_function("init") {
+		if let Ok(init) = instance.exports.get_function("init") {
 			if let Some(addr) = spawner {
-				init.call(&[Value::I32(addr as i32)]).unwrap();
+				init.call(&mut store, &[Value::I32(addr as i32)]).unwrap();
 			}
 		}
+
+		// Initialize an actor for the module, and call its initializer
+		let actor = Actor {
+			instance,
+			module: Arc::new(RwLock::new(module)),
+			src: src.as_ref().to_vec(),
+			store,
+		};
 
 		// Addresses are just indices in the set of current children
 		// (ID's reused if a slot is freed)
@@ -278,19 +335,26 @@ impl Runtime for Rt {
 	) -> Vec<Result<(), RuntimeError>> {
 		let handler_name = format!("handle_{}", msg_name);
 
-		if let Ok(ref children) = self.children.read() {
+		if let Ok(ref mut children) = self.children.write() {
 			children
-				.iter()
-				.filter_map(|c| c.as_ref())
-				.map(move |child| child.instance.exports.get_function(&handler_name))
-				.filter_map(Result::ok)
-				.map(move |handler| {
-					// Reallocate args with the sender being the master process
-					let mut proper_params = params.to_vec();
-					proper_params.push(Value::I32(0));
+				.iter_mut()
+				.filter_map(|c| c.as_mut())
+				.map(|ref mut child| {
+					child
+						.instance
+						.exports
+						.get_function(&handler_name)
+						.map(|handler| {
+							// Reallocate args with the sender being the master process
+							let mut proper_params = params.to_vec();
+							proper_params.push(Value::I32(0));
 
-					handler.call(proper_params.as_slice()).map(|_| ())
+							handler
+								.call(&mut child.store, proper_params.as_slice())
+								.map(|_| ())
+						})
 				})
+				.filter_map(Result::ok)
 				.collect::<Vec<_>>()
 		} else {
 			Vec::new()

@@ -6,7 +6,7 @@ pub fn get_utf8_string_with_nul<'a, T: Copy + ValueType>(
 	memory: &'a Memory,
 ) -> Option<String> {
 	unsafe {
-		memory.view::<u8>()[(ptr.offset() as usize)..]
+		memory.view()[(ptr.offset() as usize)..]
 			.iter()
 			.map(|cell| cell.get())
 			.position(|byte| byte == 0)
