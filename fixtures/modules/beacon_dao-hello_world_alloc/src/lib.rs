@@ -1,15 +1,14 @@
 use beacon_dao_logger::{alias_service, info};
 use vision_derive::with_bindings;
 use vision_utils::types::Address;
-use wasm_bindgen::prelude::wasm_bindgen;
 
 #[cfg(feature = "module")]
-#[wasm_bindgen]
-pub fn init(parent: Address) {
+#[no_mangle]
+pub extern "C" fn init(parent: Address) {
 	alias_service(3, "Test Actor".to_owned());
 }
 
-#[wasm_bindgen]
-pub fn handle_test(from: Address) {
+#[no_mangle]
+pub extern "C" fn handle_test(from: Address) {
 	info(3, "Bro".to_owned());
 }

@@ -5,7 +5,6 @@ use vision_utils::{
 	actor::{address, send_message, spawn_actor},
 	types::Address,
 };
-use wasm_bindgen::prelude::wasm_bindgen;
 use wasmer::{FromToNativeWasmType, WasmPtr};
 
 use std::{ffi::CString, sync::RwLock};
@@ -56,8 +55,8 @@ static OWNER: RwLock<Option<Address>> = RwLock::new(None);
 static VAL: RwLock<Vec<u8>> = RwLock::new(Vec::new());
 
 #[with_bindings(self)]
-#[wasm_bindgen]
-pub fn handle_allocate(from: Address, size: u32) -> Result<Address, Error> {
+#[no_mangle]
+pub extern "C" fn handle_allocate(from: Address, size: u32) -> Result<Address, Error> {
 	// Require that we are a manager to allocate memory
 	ensure!(
 		OWNER
@@ -82,16 +81,16 @@ pub fn handle_allocate(from: Address, size: u32) -> Result<Address, Error> {
 }
 
 #[cfg(feature = "module")]
-#[wasm_bindgen]
-pub fn init(owner: Address) {
+#[no_mangle]
+pub extern "C" fn init(owner: Address) {
 	if let Ok(mut lock) = OWNER.write() {
 		lock.replace(owner);
 	}
 }
 
 #[with_bindings(self)]
-#[wasm_bindgen]
-pub fn handle_read(from: Address, offset: u32) -> Result<u8, Error> {
+#[no_mangle]
+pub extern "C" fn handle_read(from: Address, offset: u32) -> Result<u8, Error> {
 	is_owner!(from);
 
 	VAL.read()
@@ -102,8 +101,8 @@ pub fn handle_read(from: Address, offset: u32) -> Result<u8, Error> {
 }
 
 #[with_bindings(self)]
-#[wasm_bindgen]
-pub fn handle_write(from: Address, offset: u32, val: u8) {
+#[no_mangle]
+pub extern "C" fn handle_write(from: Address, offset: u32, val: u8) {
 	assert_isowner!(from);
 
 	if let Ok(mut lock) = VAL.write() {
@@ -114,8 +113,8 @@ pub fn handle_write(from: Address, offset: u32, val: u8) {
 }
 
 #[with_bindings(self)]
-#[wasm_bindgen]
-pub fn handle_grow(from: Address, size: u32) {
+#[no_mangle]
+pub extern "C" fn handle_grow(from: Address, size: u32) {
 	assert_isowner!(from);
 
 	if let Ok(mut lock) = VAL.write() {
@@ -127,8 +126,8 @@ pub fn handle_grow(from: Address, size: u32) {
 }
 
 #[with_bindings(self)]
-#[wasm_bindgen]
-pub fn handle_shrink(from: Address, size: u32) {
+#[no_mangle]
+pub extern "C" fn handle_shrink(from: Address, size: u32) {
 	assert_isowner!(from);
 
 	if let Ok(mut lock) = VAL.write() {

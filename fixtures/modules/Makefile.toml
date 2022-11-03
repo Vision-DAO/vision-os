@@ -2,8 +2,20 @@
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 
 [tasks.build]
-command = "wasm-pack"
-args = ["build", "--target", "web", "--release", "--features", "module"]
+workspace = false
+dependencies = ["build_all_flow", "build_scheduler"]
+
+[tasks.build_scheduler]
+script = '''
+cd beacon_dao-scheduler && wasm-pack build --target web --release --features module
+'''
+
+[tasks.build_all_flow]
+run_task = { name = "build_all", fork = true }
+
+[tasks.build_all]
+command = "cargo"
+args = ["build", "--target", "wasm32-unknown-unknown", "--release", "--features", "module"]
 
 [tasks.test]
 command = "wasm-pack"
