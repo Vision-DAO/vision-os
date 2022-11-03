@@ -71,12 +71,12 @@ impl Default for Rt {
 }
 
 impl Rt {
-	fn do_log_safe(env: FunctionEnvMut<RtContext>, msg: WasmPtr<u8>) -> Option<()> {
+	fn do_log_safe(env: FunctionEnvMut<(Address, Rt)>, msg: WasmPtr<u8>) -> Option<()> {
 		// Get the memory of the module calling log, and read the message they
 		// want to log from memory
-		let children = env.data().0.children.read().ok()?;
+		let children = env.data().1.children.read().ok()?;
 		let self_module = children
-			.get(env.data().1 as usize)
+			.get(env.data().0 as usize)
 			.map(Option::as_ref)
 			.flatten()?;
 
@@ -96,7 +96,7 @@ impl Rt {
 		Some(())
 	}
 
-	fn log_safe(env: FunctionEnvMut<RtContext>, msg: WasmPtr<u8>) {
+	fn log_safe(env: FunctionEnvMut<(Address, Rt)>, msg: WasmPtr<u8>) {
 		Self::do_log_safe(env, msg).unwrap();
 	}
 
@@ -205,20 +205,30 @@ impl Rt {
 	}
 
 	fn send_message(
-		env: &Rt,
-		from: Address,
+		env: FunctionEnvMut<(Address, Rt)>,
 		addr: Address,
 		msg_name_buf: WasmPtr<u8>,
 		msg_buf: WasmPtr<u8>,
 	) {
+		let from = env.data().0;
+
 		// Ensures that provided addresses aren't the root service
 		if let Some((from, addr)) = NonZeroU32::new(from).zip(NonZeroU32::new(addr)) {
-			env.do_send_message(from.get(), addr.get(), msg_name_buf, msg_buf);
+			env.data()
+				.1
+				.do_send_message(from.get(), addr.get(), msg_name_buf, msg_buf);
 		}
 	}
 
-	fn spawn_actor(env: FunctionEnvMut<Rt>, spawner: Address, addr: Address) -> Address {
-		env.data().do_spawn_actor(Some(spawner), addr).unwrap_or(0)
+	fn spawn_actor(env: FunctionEnvMut<(Address, Rt)>, addr: Address) -> Address {
+		env.data()
+			.1
+			.do_spawn_actor(Some(env.data().0), addr)
+			.unwrap_or(0)
+	}
+
+	fn address(env: FunctionEnvMut<Address>) -> Address {
+		*env.data()
 	}
 }
 
@@ -261,25 +271,12 @@ impl Runtime for Rt {
 			.context(ModuleSnafu)?;
 
 		// Create methods for the WASM module that allow spawning and sending
-		let env = FunctionEnv::new(&mut store, self.clone());
-		let send_message_fn = Function::new_typed_with_env(
-			&mut store,
-			&env,
-			move |env: FunctionEnvMut<Rt>,
-			      to: u32,
-			      msg_name_ref: WasmPtr<u8>,
-			      msg_ref: WasmPtr<u8>| {
-				Self::send_message(env.data(), slot, to, msg_name_ref, msg_ref)
-			},
-		);
-		let env = FunctionEnv::new(&mut store, self.clone());
-		let spawn_actor_fn = Function::new_typed_with_env(
-			&mut store,
-			&env,
-			move |env: FunctionEnvMut<Rt>, address: Address| Self::spawn_actor(env, slot, address),
-		);
-		let address_fn = Function::new_typed(&mut store, move || slot);
-		let env = FunctionEnv::new(&mut store, RtContext(self.clone(), slot));
+		let env = FunctionEnv::new(&mut store, (slot, self.clone()));
+		let send_message_fn = Function::new_typed_with_env(&mut store, &env, Self::send_message);
+		let spawn_actor_fn = Function::new_typed_with_env(&mut store, &env, Self::spawn_actor);
+		let env = FunctionEnv::new(&mut store, slot);
+		let address_fn = Function::new_typed_with_env(&mut store, &env, Self::address);
+		let env = FunctionEnv::new(&mut store, (slot, self.clone()));
 		let imports = if privileged {
 			wasmer::imports! {
 				"" => {
