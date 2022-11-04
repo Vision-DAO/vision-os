@@ -64,7 +64,7 @@ fn type_size(ty: impl Deref<Target = Type>) -> u32 {
 impl Default for Rt {
 	fn default() -> Self {
 		Self {
-			children: Arc::new(RwLock::new(Vec::new())),
+			children: Arc::new(RwLock::new(vec![None])),
 			free_slots: Arc::new(RwLock::new(Vec::new())),
 		}
 	}
@@ -256,7 +256,7 @@ impl Runtime for Rt {
 			free_slot
 		} else {
 			let new_slot =
-				TryInto::<u32>::try_into(children.len() + 1).map_err(|_| Error::NoFreeAddrs)?;
+				TryInto::<u32>::try_into(children.len()).map_err(|_| Error::NoFreeAddrs)?;
 			children.push(None);
 
 			NonZeroU32::new(new_slot)
@@ -279,7 +279,7 @@ impl Runtime for Rt {
 		let env = FunctionEnv::new(&mut store, (slot, self.clone()));
 		let imports = if privileged {
 			wasmer::imports! {
-				"" => {
+				"env" => {
 					"send_message" => send_message_fn,
 					"spawn_actor" => spawn_actor_fn,
 
@@ -290,7 +290,7 @@ impl Runtime for Rt {
 			}
 		} else {
 			wasmer::imports! {
-				"" => {
+				"env" => {
 					"send_message" => send_message_fn,
 					"spawn_actor" => spawn_actor_fn,
 
