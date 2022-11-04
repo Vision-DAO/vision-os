@@ -5,7 +5,6 @@ use vision_utils::{
 	actor::{address, send_message, spawn_actor},
 	types::Address,
 };
-use wasmer::{FromToNativeWasmType, WasmPtr};
 
 use std::{ffi::CString, sync::RwLock};
 
@@ -73,8 +72,8 @@ pub extern "C" fn handle_allocate(from: Address, size: u32) -> Result<Address, E
 	let msg_kind = CString::new("grow").unwrap();
 	send_message(
 		memcell,
-		WasmPtr::from_native(msg_kind.as_ptr() as i32),
-		WasmPtr::from_native((&size as *const u32) as i32),
+		msg_kind.as_ptr() as i32,
+		(&size as *const u32) as i32,
 	);
 
 	Ok(memcell)
