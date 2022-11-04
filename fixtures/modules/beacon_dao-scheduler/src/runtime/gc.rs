@@ -1,10 +1,14 @@
-use super::{CompileSnafu, Error, InstantiationSnafu, LockSnafu, ModuleSnafu, Runtime};
+use super::{
+	CompileSnafu, Error, ExportSnafu, InstantiationSnafu, LockSnafu, ModuleSnafu, Runtime,
+	RuntimeSnafu,
+};
 use crate::common::Address;
 
 use std::{
+	convert::identity,
 	fmt::Display,
 	num::NonZeroU32,
-	ops::Deref,
+	ops::{Deref, DerefMut},
 	sync::{Arc, RwLock},
 };
 
@@ -40,7 +44,7 @@ pub struct RtContext(Rt, Address);
 struct Actor {
 	module: Arc<RwLock<Module>>,
 	instance: Instance,
-	store: Store,
+	store: RwLock<Store>,
 	src: Vec<u8>,
 }
 
@@ -79,6 +83,7 @@ impl Rt {
 			.get(env.data().0 as usize)
 			.map(Option::as_ref)
 			.flatten()?;
+		let self_store = self_module.store.read().ok()?;
 
 		let msg = msg
 			.read_utf8_string_with_nul(
@@ -87,7 +92,7 @@ impl Rt {
 					.exports
 					.get_memory("memory")
 					.ok()?
-					.view(&self_module.store),
+					.view(self_store.deref()),
 			)
 			.ok()?;
 
@@ -107,11 +112,14 @@ impl Rt {
 		msg_name_buf: WasmPtr<u8>,
 		msg_buf: WasmPtr<u8>,
 	) -> Option<()> {
-		let mut children = self.children.write().ok()?;
+		let children = self.children.read().ok()?;
 
 		let msg_name = {
 			// Get the message name from the sender, and call the receiver's handler
 			let sender = children.get(from as usize).map(Option::as_ref).flatten()?;
+			let sender_store = sender.store.read().ok()?;
+
+			log("5");
 
 			let mut msg_name = msg_name_buf
 				.read_utf8_string_with_nul(
@@ -120,23 +128,28 @@ impl Rt {
 						.exports
 						.get_memory("memory")
 						.ok()?
-						.view(&sender.store),
+						.view(sender_store.deref()),
 				)
 				.ok()?;
+			log("6");
 			msg_name.insert_str(0, "handle_");
+			log("7");
 
 			msg_name
 		};
 
-		let recv = children
-			.get_mut(addr as usize)
-			.map(Option::as_mut)
-			.flatten()?;
+		log(&format!(
+			"sending message {:?} {:?} {:?}",
+			from, addr, msg_name,
+		));
+
+		let recv = children.get(addr as usize).map(Option::as_ref).flatten()?;
+		let mut recv_store = recv.store.write().ok()?;
 
 		let handler = recv.instance.exports.get_function(msg_name.as_str()).ok()?;
 
 		// Deref args expected by the handler from the message buffer
-		let (args, _) = handler.ty(&recv.store).params()[1..].iter().fold(
+		let (args, _) = handler.ty(recv_store.deref()).params()[1..].iter().fold(
 			([Value::I32(from as i32)].to_vec(), 0),
 			|(mut accum, pos), arg| {
 				let arg_size = type_size(arg);
@@ -169,7 +182,7 @@ impl Rt {
 						.get_memory("memory")
 						.ok()
 						.and_then(|mem| {
-							let view = mem.view(&recv.store);
+							let view = mem.view(recv_store.deref());
 
 							(0..(arg_size / 8))
 								.map(|i| {
@@ -190,7 +203,9 @@ impl Rt {
 			},
 		);
 
-		handler.call(&mut recv.store, args.as_slice()).unwrap();
+		handler
+			.call(recv_store.deref_mut(), args.as_slice())
+			.unwrap();
 
 		Some(())
 	}
@@ -315,7 +330,7 @@ impl Runtime for Rt {
 			instance,
 			module: Arc::new(RwLock::new(module)),
 			src: src.as_ref().to_vec(),
-			store,
+			store: RwLock::new(store),
 		};
 
 		// Addresses are just indices in the set of current children
@@ -329,29 +344,39 @@ impl Runtime for Rt {
 		&self,
 		msg_name: impl AsRef<str> + Display,
 		params: impl Deref<Target = [Val]>,
-	) -> Vec<Result<(), RuntimeError>> {
+	) -> Vec<Result<(), Error>> {
 		let handler_name = format!("handle_{}", msg_name);
 
-		if let Ok(ref mut children) = self.children.write() {
+		if let Ok(ref children) = self.children.read() {
 			children
-				.iter_mut()
-				.filter_map(|c| c.as_mut())
-				.map(|ref mut child| {
+				.iter()
+				.map(Option::as_ref)
+				.filter_map(identity)
+				.map(|ref child| {
 					child
 						.instance
 						.exports
 						.get_function(&handler_name)
-						.map(|handler| {
+						.context(ExportSnafu)
+						.context(ModuleSnafu)
+						.and_then(|ref handler| {
+							let mut lock = child
+								.store
+								.write()
+								.map_err(|_| NoneError)
+								.context(LockSnafu)?;
+
 							// Reallocate args with the sender being the master process
 							let mut proper_params = params.to_vec();
 							proper_params.push(Value::I32(0));
 
 							handler
-								.call(&mut child.store, proper_params.as_slice())
+								.call(lock.deref_mut(), proper_params.as_slice())
 								.map(|_| ())
+								.context(RuntimeSnafu)
+								.context(ModuleSnafu)
 						})
 				})
-				.filter_map(Result::ok)
 				.collect::<Vec<_>>()
 		} else {
 			Vec::new()

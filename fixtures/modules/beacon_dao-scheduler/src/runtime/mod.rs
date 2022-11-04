@@ -2,7 +2,7 @@ pub mod gc;
 
 use crate::common::Address;
 use snafu::Snafu;
-use wasmer::{InstantiationError, RuntimeError, Val};
+use wasmer::{ExportError, InstantiationError, RuntimeError, Val};
 
 use std::{
 	fmt::{Debug, Display},
@@ -27,6 +27,8 @@ pub enum Error {
 #[snafu(visibility(pub))]
 pub enum WasmError {
 	InstantiationError { source: InstantiationError },
+	RuntimeError { source: RuntimeError },
+	ExportError { source: ExportError },
 	CompileError,
 }
 
@@ -47,5 +49,5 @@ pub trait Runtime {
 		&self,
 		msg_name: impl AsRef<str> + Display,
 		params: impl Deref<Target = [Val]>,
-	) -> Vec<Result<(), RuntimeError>>;
+	) -> Vec<Result<(), Error>>;
 }
