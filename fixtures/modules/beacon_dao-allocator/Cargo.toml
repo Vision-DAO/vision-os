@@ -15,4 +15,4 @@ vision-utils = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git" }
 vision-derive-internal = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git" }
 snafu = "0.7.2"
 serde_json = "1.0.86"
-serde = "1.0.145"
+serde = { version = "1.0.145", features = ["serde_derive"] }
