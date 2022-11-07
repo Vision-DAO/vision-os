@@ -5,18 +5,20 @@ use super::{
 use crate::common::Address;
 
 use std::{
+	cell::RefCell,
 	convert::identity,
+	ffi::{CStr, CString},
 	fmt::Display,
 	num::NonZeroU32,
 	ops::{Deref, DerefMut},
 	sync::{Arc, RwLock},
 };
 
+use parking_lot::ReentrantMutex;
 use snafu::{NoneError, ResultExt};
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasmer::{
-	Function, FunctionEnv, FunctionEnvMut, Instance, Module, RuntimeError, Store, Type, Val, Value,
-	WasmPtr, WasmRef,
+	Function, FunctionEnv, FunctionEnvMut, Instance, Module, Store, Type, Val, Value, WasmPtr,
 };
 
 #[wasm_bindgen]
@@ -42,9 +44,9 @@ pub struct RtContext(Rt, Address);
 
 /// The source code of an actor, and its current state.
 struct Actor {
-	module: Arc<RwLock<Module>>,
+	module: Arc<ReentrantMutex<Module>>,
 	instance: Instance,
-	store: RwLock<Store>,
+	store: ReentrantMutex<RefCell<Store>>,
 	src: Vec<u8>,
 }
 
@@ -83,7 +85,7 @@ impl Rt {
 			.get(env.data().0 as usize)
 			.map(Option::as_ref)
 			.flatten()?;
-		let self_store = self_module.store.read().ok()?;
+		let self_store = self_module.store.lock();
 
 		let msg = msg
 			.read_utf8_string_with_nul(
@@ -92,7 +94,7 @@ impl Rt {
 					.exports
 					.get_memory("memory")
 					.ok()?
-					.view(self_store.deref()),
+					.view(self_store.borrow_mut().deref()),
 			)
 			.ok()?;
 
@@ -109,31 +111,25 @@ impl Rt {
 		&self,
 		from: Address,
 		addr: Address,
-		msg_name_buf: WasmPtr<u8>,
-		msg_buf: WasmPtr<u8>,
+		msg_name_buf: i32,
+		msg_buf: i32,
 	) -> Option<()> {
 		let children = self.children.read().ok()?;
 
+		log("1");
+
 		let msg_name = {
+			log("2");
+			log(&format!("{}", msg_name_buf));
+			log(&format!("{:?}", unsafe {
+				CStr::from_ptr(msg_name_buf as *const i8)
+			}));
 			// Get the message name from the sender, and call the receiver's handler
-			let sender = children.get(from as usize).map(Option::as_ref).flatten()?;
-			let sender_store = sender.store.read().ok()?;
-
-			log("5");
-
-			let mut msg_name = msg_name_buf
-				.read_utf8_string_with_nul(
-					&sender
-						.instance
-						.exports
-						.get_memory("memory")
-						.ok()?
-						.view(sender_store.deref()),
-				)
+			let mut msg_name = CString::from(unsafe { CStr::from_ptr(msg_name_buf as *const i8) })
+				.into_string()
 				.ok()?;
-			log("6");
 			msg_name.insert_str(0, "handle_");
-			log("7");
+			log("3");
 
 			msg_name
 		};
@@ -144,67 +140,63 @@ impl Rt {
 		));
 
 		let recv = children.get(addr as usize).map(Option::as_ref).flatten()?;
-		let mut recv_store = recv.store.write().ok()?;
+		let recv_store = recv.store.lock();
 
 		let handler = recv.instance.exports.get_function(msg_name.as_str()).ok()?;
 
 		// Deref args expected by the handler from the message buffer
-		let (args, _) = handler.ty(recv_store.deref()).params()[1..].iter().fold(
-			([Value::I32(from as i32)].to_vec(), 0),
-			|(mut accum, pos), arg| {
-				let arg_size = type_size(arg);
+		let (args, _) = handler.ty(recv_store.borrow_mut().deref_mut()).params()[1..]
+			.iter()
+			.fold(
+				([Value::I32(from as i32)].to_vec(), 0),
+				|(mut accum, pos), arg| {
+					let arg_size = type_size(arg);
 
-				let parse_arg = |arg_val: Vec<WasmRef<'_, u8>>| {
-					let bytes = arg_val
-						.iter()
-						.map(|cell| cell.read())
-						.collect::<Result<Vec<u8>, _>>()
-						.ok()?;
+					let parse_arg = |arg_val: Vec<*const u8>| {
+						let bytes = arg_val
+							.into_iter()
+							.map(|cell: *const u8| unsafe { *cell })
+							.collect::<Vec<u8>>();
 
-					match arg {
-						Type::I32 => Some(Value::I32(i32::from_le_bytes(bytes.try_into().ok()?))),
-						Type::I64 => Some(Value::I64(i64::from_le_bytes(bytes.try_into().ok()?))),
-						Type::F32 => Some(Value::F32(f32::from_le_bytes(bytes.try_into().ok()?))),
-						Type::F64 => Some(Value::F64(f64::from_le_bytes(bytes.try_into().ok()?))),
-						Type::V128 => {
-							Some(Value::V128(u128::from_le_bytes(bytes.try_into().ok()?)))
+						match arg {
+							Type::I32 => {
+								Some(Value::I32(i32::from_le_bytes(bytes.try_into().ok()?)))
+							}
+							Type::I64 => {
+								Some(Value::I64(i64::from_le_bytes(bytes.try_into().ok()?)))
+							}
+							Type::F32 => {
+								Some(Value::F32(f32::from_le_bytes(bytes.try_into().ok()?)))
+							}
+							Type::F64 => {
+								Some(Value::F64(f64::from_le_bytes(bytes.try_into().ok()?)))
+							}
+							Type::V128 => {
+								Some(Value::V128(u128::from_le_bytes(bytes.try_into().ok()?)))
+							}
+
+							// The only way for actors to communicate is via
+							// message-passing. No cross-module dereferencing of pointers
+							Type::ExternRef | Type::FuncRef => None,
 						}
+					};
 
-						// The only way for actors to communicate is via
-						// message-passing. No cross-module dereferencing of pointers
-						Type::ExternRef | Type::FuncRef => None,
+					if let Some(arg_val) = parse_arg(
+						(0..(arg_size / 8))
+							.map(|i| (msg_buf + (pos + i as i32)) as *const u8)
+							.collect::<Vec<*const u8>>(),
+					) {
+						accum.push(arg_val);
+
+						(accum, pos + arg_size as i32)
+					} else {
+						(accum, pos)
 					}
-				};
-
-				if let Some(arg_val) =
-					recv.instance
-						.exports
-						.get_memory("memory")
-						.ok()
-						.and_then(|mem| {
-							let view = mem.view(recv_store.deref());
-
-							(0..(arg_size / 8))
-								.map(|i| {
-									msg_buf
-										.add_offset(pos + i as u32)
-										.map(|ptr| ptr.deref(&view))
-								})
-								.collect::<Result<Vec<WasmRef<'_, u8>>, _>>()
-								.ok()
-								.and_then(parse_arg)
-						}) {
-					accum.push(arg_val);
-
-					(accum, pos + arg_size)
-				} else {
-					(accum, pos)
-				}
-			},
-		);
+				},
+			);
 
 		handler
-			.call(recv_store.deref_mut(), args.as_slice())
+			.call(recv_store.borrow_mut().deref_mut(), args.as_slice())
 			.unwrap();
 
 		Some(())
@@ -222,8 +214,8 @@ impl Rt {
 	fn send_message(
 		env: FunctionEnvMut<(Address, Rt)>,
 		addr: Address,
-		msg_name_buf: WasmPtr<u8>,
-		msg_buf: WasmPtr<u8>,
+		msg_name_buf: i32,
+		msg_buf: i32,
 	) {
 		let from = env.data().0;
 
@@ -328,9 +320,9 @@ impl Runtime for Rt {
 		// Initialize an actor for the module, and call its initializer
 		let actor = Actor {
 			instance,
-			module: Arc::new(RwLock::new(module)),
+			module: Arc::new(ReentrantMutex::new(module)),
 			src: src.as_ref().to_vec(),
-			store: RwLock::new(store),
+			store: ReentrantMutex::new(RefCell::new(store)),
 		};
 
 		// Addresses are just indices in the set of current children
@@ -360,18 +352,16 @@ impl Runtime for Rt {
 						.context(ExportSnafu)
 						.context(ModuleSnafu)
 						.and_then(|ref handler| {
-							let mut lock = child
-								.store
-								.write()
-								.map_err(|_| NoneError)
-								.context(LockSnafu)?;
+							let lock = child.store.lock();
 
 							// Reallocate args with the sender being the master process
 							let mut proper_params = params.to_vec();
 							proper_params.push(Value::I32(0));
 
+							let mut locked = lock.borrow_mut();
+
 							handler
-								.call(lock.deref_mut(), proper_params.as_slice())
+								.call(locked.deref_mut(), proper_params.as_slice())
 								.map(|_| ())
 								.context(RuntimeSnafu)
 								.context(ModuleSnafu)
