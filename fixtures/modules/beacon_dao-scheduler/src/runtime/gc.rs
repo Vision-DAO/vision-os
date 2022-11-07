@@ -99,7 +99,6 @@ impl Rt {
 			.ok()?;
 
 		log(msg.as_str());
-
 		Some(())
 	}
 
@@ -116,7 +115,7 @@ impl Rt {
 	) -> Option<()> {
 		let children = self.children.read().ok()?;
 
-		log("1");
+		log("un");
 
 		let msg_name = {
 			log("2");
