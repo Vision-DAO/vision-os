@@ -3,7 +3,7 @@ CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 
 [tasks.build]
 workspace = false
-dependencies = ["build_all_flow", "build_scheduler"]
+dependencies = ["update", "build_all_flow", "build_scheduler"]
 
 [tasks.build_scheduler]
 script = '''
@@ -20,3 +20,9 @@ args = ["build", "--target", "wasm32-unknown-unknown", "--release", "--features"
 [tasks.test]
 command = "wasm-pack"
 args = ["test", "--headless", "--firefox"]
+
+[tasks.update]
+run_task = { name = "update_all", fork = true }
+
+[tasks.update_all]
+script = '''eval `ssh-agent -s` && ssh-add && cargo update'''
