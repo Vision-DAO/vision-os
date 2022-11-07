@@ -42,7 +42,7 @@ pub fn start() {
 		include_bytes!(
 			"../../target/wasm32-unknown-unknown/release/beacon_dao_hello_world_alloc.wasm"
 		),
-		false,
+		true,
 	)
 	.expect("Failed to start hello world service");
 
