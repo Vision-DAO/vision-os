@@ -7,7 +7,7 @@ use crate::common::Address;
 use std::{
 	cell::RefCell,
 	convert::identity,
-	ffi::{CStr, CString},
+	ffi::CStr,
 	fmt::Display,
 	num::NonZeroU32,
 	ops::{Deref, DerefMut},
@@ -18,7 +18,8 @@ use parking_lot::ReentrantMutex;
 use snafu::{NoneError, ResultExt};
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasmer::{
-	Function, FunctionEnv, FunctionEnvMut, Instance, Module, Store, Type, Val, Value, WasmPtr,
+	FromToNativeWasmType, Function, FunctionEnv, FunctionEnvMut, Instance, Memory32, MemoryView,
+	Module, Store, Type, Val, Value, WasmPtr,
 };
 
 #[wasm_bindgen]
@@ -77,37 +78,29 @@ impl Default for Rt {
 }
 
 impl Rt {
-	fn do_log_safe(env: FunctionEnvMut<(Address, Rt)>, msg: WasmPtr<u8>) -> Option<()> {
+	fn do_log_safe(env: FunctionEnvMut<(Address, Rt)>, msg: i32) -> Option<()> {
+		let children = env.data().1.children.read().ok()?;
+		let logging_actor = children.get(env.data().0 as usize).map(Option::as_ref)??;
+		let memory = logging_actor.instance.exports.get_memory("memory").ok()?;
+
 		// Get the memory of the module calling log, and read the message they
 		// want to log from memory
-		let children = env.data().1.children.read().ok()?;
-		let self_module = children
-			.get(env.data().0 as usize)
-			.map(Option::as_ref)
-			.flatten()?;
-		let self_store = self_module.store.lock();
-
-		let msg = msg
-			.read_utf8_string_with_nul(
-				&self_module
-					.instance
-					.exports
-					.get_memory("memory")
-					.ok()?
-					.view(self_store.borrow_mut().deref()),
-			)
+		let memory = memory.view(&env);
+		let msg = <WasmPtr<u8, Memory32> as FromToNativeWasmType>::from_native(msg)
+			.read_utf8_string_with_nul(&memory)
 			.ok()?;
 
 		log(msg.as_str());
 		Some(())
 	}
 
-	fn log_safe(env: FunctionEnvMut<(Address, Rt)>, msg: WasmPtr<u8>) {
+	fn log_safe(env: FunctionEnvMut<(Address, Rt)>, msg: i32) {
 		Self::do_log_safe(env, msg).unwrap();
 	}
 
 	fn do_send_message(
 		&self,
+		env: FunctionEnvMut<(Address, Rt)>,
 		from: Address,
 		addr: Address,
 		msg_name_buf: i32,
@@ -115,20 +108,25 @@ impl Rt {
 	) -> Option<()> {
 		let children = self.children.read().ok()?;
 
-		log("un");
+		let sending_actor = children.get(env.data().0 as usize).map(Option::as_ref)??;
+		let memory = sending_actor
+			.instance
+			.exports
+			.get_memory("memory")
+			.ok()?
+			.view(&env);
 
 		let msg_name = {
-			log("2");
-			log(&format!("{}", msg_name_buf));
-			log(&format!("{:?}", unsafe {
+			log(&format!("received {}", msg_name_buf));
+			log(&format!("received {:?}", unsafe {
 				CStr::from_ptr(msg_name_buf as *const i8)
 			}));
 			// Get the message name from the sender, and call the receiver's handler
-			let mut msg_name = CString::from(unsafe { CStr::from_ptr(msg_name_buf as *const i8) })
-				.into_string()
-				.ok()?;
+			let mut msg_name =
+				<WasmPtr<u8, Memory32> as FromToNativeWasmType>::from_native(msg_name_buf)
+					.read_utf8_string_with_nul(&memory)
+					.ok()?;
 			msg_name.insert_str(0, "handle_");
-			log("3");
 
 			msg_name
 		};
@@ -151,11 +149,15 @@ impl Rt {
 				|(mut accum, pos), arg| {
 					let arg_size = type_size(arg);
 
-					let parse_arg = |arg_val: Vec<*const u8>| {
+					let parse_arg = |arg_val: Vec<i32>, view: &MemoryView| {
 						let bytes = arg_val
 							.into_iter()
-							.map(|cell: *const u8| unsafe { *cell })
-							.collect::<Vec<u8>>();
+							.map(|cell: i32| {
+								<WasmPtr<u8, Memory32> as FromToNativeWasmType>::from_native(cell)
+									.read(&view)
+							})
+							.collect::<Result<Vec<u8>, _>>()
+							.ok()?;
 
 						match arg {
 							Type::I32 => {
@@ -182,8 +184,9 @@ impl Rt {
 
 					if let Some(arg_val) = parse_arg(
 						(0..(arg_size / 8))
-							.map(|i| (msg_buf + (pos + i as i32)) as *const u8)
-							.collect::<Vec<*const u8>>(),
+							.map(|i| msg_buf + (pos + i as i32))
+							.collect::<Vec<i32>>(),
+						&memory,
 					) {
 						accum.push(arg_val);
 
@@ -220,9 +223,9 @@ impl Rt {
 
 		// Ensures that provided addresses aren't the root service
 		if let Some((from, addr)) = NonZeroU32::new(from).zip(NonZeroU32::new(addr)) {
-			env.data()
-				.1
-				.do_send_message(from.get(), addr.get(), msg_name_buf, msg_buf);
+			let rt = env.data().1.clone();
+
+			rt.do_send_message(env, from.get(), addr.get(), msg_name_buf, msg_buf);
 		}
 	}
 

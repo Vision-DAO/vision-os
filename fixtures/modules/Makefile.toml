@@ -25,4 +25,4 @@ args = ["test", "--headless", "--firefox"]
 run_task = { name = "update_all", fork = true }
 
 [tasks.update_all]
-script = '''eval `ssh-agent -s` && ssh-add && cargo update'''
+script = '''cargo update'''
