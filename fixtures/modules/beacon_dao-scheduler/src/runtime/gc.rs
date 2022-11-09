@@ -134,6 +134,8 @@ impl Rt {
 		let recv = children.get(addr as usize).map(Option::as_ref).flatten()?;
 		let recv_store = recv.store.lock();
 
+		log("137");
+
 		let handler = recv.instance.exports.get_function(msg_name.as_str()).ok()?;
 
 		// Deref args expected by the handler from the message buffer
@@ -192,9 +194,13 @@ impl Rt {
 				},
 			);
 
+		log("197");
+
 		handler
 			.call(recv_store.borrow_mut().deref_mut(), args.as_slice())
 			.unwrap();
+
+		log("handled");
 
 		Some(())
 	}
