@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
-use snafu::{ensure, Snafu};
-use vision_derive_internal::with_bindings;
+use snafu::Snafu;
 use vision_utils::{
 	actor::{address, send_message, spawn_actor},
 	types::Address,
@@ -23,15 +22,6 @@ macro_rules! assert_isowner {
 			.ok()
 			.map(|owner| *owner == Some($from))
 			.unwrap_or(false));
-	};
-}
-
-macro_rules! is_owner {
-	($from:ident) => {
-		ensure!(
-			*OWNER.read().map_err(|_| Error::MemoryError)? == Some($from),
-			NotAllowedSnafu
-		);
 	};
 }
 
@@ -58,7 +48,7 @@ extern "C" {
 }
 
 #[no_mangle]
-pub extern "C" fn handle_allocate(from: Address, size: u32) -> Result<Address, Error> {
+pub extern "C" fn handle_allocate(from: Address, size: u32) {
 	unsafe {
 		if let Ok(msg) = CString::new("handling allocate") {
 			print(msg.as_ptr() as i32);
@@ -66,14 +56,11 @@ pub extern "C" fn handle_allocate(from: Address, size: u32) -> Result<Address, E
 	};
 
 	// Require that we are a manager to allocate memory
-	ensure!(
-		OWNER
-			.read()
-			.ok()
-			.map(|owner| owner.is_none())
-			.unwrap_or(false),
-		NotAllowedSnafu
-	);
+	eassert!(OWNER
+		.read()
+		.ok()
+		.map(|owner| owner.is_none())
+		.unwrap_or(false));
 
 	unsafe {
 		if let Ok(msg) = CString::new("79") {
@@ -97,44 +84,34 @@ pub extern "C" fn handle_allocate(from: Address, size: u32) -> Result<Address, E
 		(&size as *const u32) as i32,
 	);
 
-	Ok(memcell)
+	let msg_kind = CString::new("allocate").unwrap();
+	send_message(
+		from,
+		msg_kind.as_ptr() as i32,
+		ptr::addr_of!(memcell) as i32,
+	);
 }
 
 /* Manually-generated ABI code for bootstrapping macro */
 
-pub static PIPELINE_ALLOCATE: RwLock<Option<Result<Address, Error>>> = RwLock::new(None);
+pub static PIPELINE_ALLOCATE: RwLock<Option<Address>> = RwLock::new(None);
 
 #[macro_export]
 macro_rules! use_allocate {
 	() => {
 		#[no_mangle]
 		pub extern "C" fn handle_allocate(from: Address, cell: Address) {
-			let msg_kind = std::ffi::CString::new("read").expect("Internal allocator error");
-			let msg_name = msg_kind.as_ptr() as i32;
-			let mut buf = Vec::new();
-
-			for i in 0..u32::MAX {
-				send_message(cell, msg_name, (&i as *const u32) as i32);
-
-				if let Some(Ok(next)) = #alloc_module::PIPELINE_READ.write().unwrap().take() {
-					buf.push(next);
-				} else {
-					break;
-				}
-			}
-
 			// This should not happen, since the wrapper method being used conforms to this practice
-			PIPELINE_ALLOCATE.write().unwrap().replace(beacon_dao_allocator::serde_json::from_slice(&buf).expect("Failed to deserialize input parameters."));
+			PIPELINE_ALLOCATE.write().unwrap().replace(cell);
 		}
-	}
+	};
 }
 
-#[cfg(feature = "module")]
 #[no_mangle]
-pub extern "C" fn allocate(to: Address, size: u32) -> Option<Result<Address, Error>> {
+pub fn allocate(to: Address, size: u32) -> Option<Address> {
 	let msg_kind = CString::new("allocate").unwrap();
 
-	send_message(to, msg_kind.as_ptr() as i32, ptr::addr_of(size) as i32);
+	send_message(to, msg_kind.as_ptr() as i32, ptr::addr_of!(size) as i32);
 	PIPELINE_ALLOCATE.write().unwrap().take()
 }
 
@@ -148,19 +125,42 @@ pub extern "C" fn init(owner: Address) {
 	}
 }
 
-#[with_bindings(self)]
-#[no_mangle]
-pub extern "C" fn handle_read(from: Address, offset: u32) -> Result<u8, Error> {
-	is_owner!(from);
+pub static PIPELINE_READ: RwLock<Option<u8>> = RwLock::new(None);
 
-	VAL.read()
-		.map_err(|_| Error::MemoryError)?
-		.get(offset as usize)
-		.map(|byte| *byte)
-		.ok_or(Error::OutOfBounds)
+#[macro_export]
+macro_rules! use_read {
+	() => {
+		#[no_mangle]
+		pub extern "C" fn handle_read(from: Address, val: u8) {
+			// This should not happen, since the wrapper method being used conforms to this practice
+			PIPELINE_READ.write().unwrap().replace(val);
+		}
+	};
 }
 
-#[with_bindings(self)]
+#[no_mangle]
+pub extern "C" fn handle_read(from: Address, offset: u32) {
+	assert_isowner!(from);
+
+	let v = VAL
+		.read()
+		.unwrap()
+		.get(offset as usize)
+		.map(|byte| *byte)
+		.unwrap();
+
+	let msg_kind = std::ffi::CString::new("read").unwrap();
+	send_message(from, msg_kind.as_ptr() as i32, ptr::addr_of!(v) as i32);
+}
+
+#[no_mangle]
+pub fn read(to: Address, offset: u32) -> Option<u8> {
+	let msg_kind = CString::new("read").unwrap();
+
+	send_message(to, msg_kind.as_ptr() as i32, ptr::addr_of!(offset) as i32);
+	PIPELINE_READ.write().unwrap().take()
+}
+
 #[no_mangle]
 pub extern "C" fn handle_write(from: Address, offset: u32, val: u8) {
 	assert_isowner!(from);
@@ -172,7 +172,24 @@ pub extern "C" fn handle_write(from: Address, offset: u32, val: u8) {
 	}
 }
 
-#[with_bindings(self)]
+#[no_mangle]
+pub fn write(to: Address, offset: u32, val: u8) {
+	let msg_kind = CString::new("write").unwrap();
+
+	let offset: [u8; 4] = offset.to_le_bytes();
+	let mut write_args: [u8; 5] = [0, 0, 0, 0, val];
+
+	for (i, b) in offset.into_iter().enumerate() {
+		write_args[i] = b;
+	}
+
+	send_message(
+		to,
+		msg_kind.as_ptr() as i32,
+		ptr::addr_of!(write_args) as i32,
+	);
+}
+
 #[no_mangle]
 pub extern "C" fn handle_grow(from: Address, size: u32) {
 	assert_isowner!(from);
@@ -185,15 +202,9 @@ pub extern "C" fn handle_grow(from: Address, size: u32) {
 	}
 }
 
-#[with_bindings(self)]
 #[no_mangle]
-pub extern "C" fn handle_shrink(from: Address, size: u32) {
-	assert_isowner!(from);
+pub fn grow(to: Address, size: u32) {
+	let msg_kind = CString::new("grow").unwrap();
 
-	if let Ok(mut lock) = VAL.write() {
-		// Remove `size` bytes from the buffer
-		for _ in 0..size {
-			lock.pop();
-		}
-	}
+	send_message(to, msg_kind.as_ptr() as i32, ptr::addr_of!(size) as i32);
 }
