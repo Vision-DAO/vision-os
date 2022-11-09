@@ -108,9 +108,23 @@ pub static PIPELINE_ALLOCATE: RwLock<Option<Result<Address, Error>>> = RwLock::n
 macro_rules! use_allocate {
 	() => {
 		#[no_mangle]
-		pub extern "C" fn handle_allocate(from: Address, arg: Address) {
+		pub extern "C" fn handle_allocate(from: Address, cell: Address) {
+			let msg_kind = std::ffi::CString::new("read").expect("Internal allocator error");
+			let msg_name = msg_kind.as_ptr() as i32;
+			let mut buf = Vec::new();
 
-			PIPELINE_ALLOCATE.
+			for i in 0..u32::MAX {
+				send_message(cell, msg_name, (&i as *const u32) as i32);
+
+				if let Some(Ok(next)) = #alloc_module::PIPELINE_READ.write().unwrap().take() {
+					buf.push(next);
+				} else {
+					break;
+				}
+			}
+
+			// This should not happen, since the wrapper method being used conforms to this practice
+			PIPELINE_ALLOCATE.write().unwrap().replace(beacon_dao_allocator::serde_json::from_slice(&buf).expect("Failed to deserialize input parameters."));
 		}
 	}
 }
