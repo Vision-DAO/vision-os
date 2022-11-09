@@ -105,9 +105,14 @@ impl Rt {
 		msg_name_buf: i32,
 		msg_buf: i32,
 	) -> Option<()> {
-		let children = self.children.read().ok()?;
+		let sending_actor = {
+			let children = self.children.read().ok()?;
+			children
+				.get(env.data().0 as usize)
+				.map(Option::as_ref)??
+				.clone()
+		};
 
-		let sending_actor = children.get(env.data().0 as usize).map(Option::as_ref)??;
 		let memory = sending_actor
 			.instance
 			.exports
@@ -131,12 +136,23 @@ impl Rt {
 			from, addr, msg_name,
 		));
 
-		let recv = children.get(addr as usize).map(Option::as_ref).flatten()?;
+		let recv = {
+			let children = self.children.read().ok()?;
+			children
+				.get(addr as usize)
+				.map(Option::as_ref)
+				.flatten()?
+				.clone()
+		};
 		let recv_store = recv.store.lock();
 
 		log("137");
 
-		let handler = recv.instance.exports.get_function(msg_name.as_str()).ok()?;
+		let handler = recv.instance.exports.get_function(msg_name.as_str());
+
+		log(&format!("to {} {} {}", addr, msg_name, handler.is_ok()));
+
+		let handler = handler.ok()?;
 
 		// Deref args expected by the handler from the message buffer
 		let (args, _) = handler.ty(recv_store.borrow_mut().deref_mut()).params()[1..]
@@ -205,19 +221,26 @@ impl Rt {
 		Some(())
 	}
 
-	fn do_spawn_actor(&self, spawner: Option<Address>, addr: Address) -> Option<Address> {
+	fn do_spawn_actor(&self, spawner: Option<Address>, addr: Address) -> Result<Address, Error> {
 		log("203");
 		let child = {
-			let children = self.children.read().ok()?;
+			let children = self
+				.children
+				.read()
+				.map_err(|_| NoneError)
+				.context(LockSnafu)?;
 
-			children.get(addr as usize)?.as_ref()?.clone()
+			children
+				.get(addr as usize)
+				.and_then(|child| child.clone())
+				.ok_or(Error::InvalidAddressError)?
 		};
 
 		let src = &child.src;
 
 		log("209");
 
-		self.spawn(spawner, src, false).ok()
+		self.spawn(spawner, src, false)
 	}
 
 	fn send_message(
@@ -246,7 +269,7 @@ impl Rt {
 		env.data()
 			.1
 			.do_spawn_actor(Some(env.data().0), addr)
-			.unwrap_or(0)
+			.unwrap()
 	}
 
 	fn address(env: FunctionEnvMut<Address>) -> Address {
@@ -325,22 +348,25 @@ impl Runtime for Rt {
 
 					// Gets the address of the calling actor
 					"address" => address_fn,
+					"print" => Function::new_typed(&mut store, |_: i32| {}),
 				},
 			}
 		};
 
-		log("319");
+		log("344");
 
 		let instance = Instance::new(&mut store, &module, &imports)
 			.context(InstantiationSnafu)
 			.context(ModuleSnafu)?;
 
+		log("350");
 		if let Ok(init) = instance.exports.get_function("init") {
 			if let Some(addr) = spawner {
 				init.call(&mut store, &[Value::I32(addr as i32)]).unwrap();
 			}
 		}
 
+		log("357");
 		// Initialize an actor for the module, and call its initializer
 		let actor = Actor {
 			instance,

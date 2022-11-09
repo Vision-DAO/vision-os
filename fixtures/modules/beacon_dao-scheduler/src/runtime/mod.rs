@@ -21,6 +21,9 @@ pub enum Error {
 
 	#[snafu(display("The server could not obtain a lock on a resource"))]
 	LockError,
+
+	#[snafu(display("No resource exists at the address"))]
+	InvalidAddressError,
 }
 
 #[derive(Debug, Snafu)]

@@ -74,7 +74,7 @@ pub extern "C" fn handle_allocate(from: Address, size: u32) -> Address {
 	let memcell = spawn_actor(address());
 
 	unsafe {
-		if let Ok(msg) = CString::new("spawned child") {
+		if let Ok(msg) = CString::new(format!("spawned child {}", memcell)) {
 			print(msg.as_ptr() as i32);
 		}
 	};
