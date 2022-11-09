@@ -7,7 +7,6 @@ use crate::common::Address;
 use std::{
 	cell::RefCell,
 	convert::identity,
-	ffi::CStr,
 	fmt::Display,
 	num::NonZeroU32,
 	ops::{Deref, DerefMut},
@@ -32,7 +31,7 @@ extern "C" {
 #[derive(Clone)]
 pub struct Rt {
 	// Current running processes.
-	children: Arc<RwLock<Vec<Option<Actor>>>>,
+	children: Arc<RwLock<Vec<Option<Arc<Actor>>>>>,
 
 	// Process slots that have been freed, and are available for use
 	free_slots: Arc<RwLock<Vec<Address>>>,
@@ -117,10 +116,6 @@ impl Rt {
 			.view(&env);
 
 		let msg_name = {
-			log(&format!("received {}", msg_name_buf));
-			log(&format!("received {:?}", unsafe {
-				CStr::from_ptr(msg_name_buf as *const i8)
-			}));
 			// Get the message name from the sender, and call the receiver's handler
 			let mut msg_name =
 				<WasmPtr<u8, Memory32> as FromToNativeWasmType>::from_native(msg_name_buf)
@@ -205,10 +200,16 @@ impl Rt {
 	}
 
 	fn do_spawn_actor(&self, spawner: Option<Address>, addr: Address) -> Option<Address> {
-		let children = self.children.read().ok()?;
-		let child = children.get(addr as usize)?.as_ref()?;
+		log("203");
+		let child = {
+			let children = self.children.read().ok()?;
+
+			children.get(addr as usize)?.as_ref()?.clone()
+		};
 
 		let src = &child.src;
+
+		log("209");
 
 		self.spawn(spawner, src, false).ok()
 	}
@@ -230,6 +231,12 @@ impl Rt {
 	}
 
 	fn spawn_actor(env: FunctionEnvMut<(Address, Rt)>, addr: Address) -> Address {
+		log(&format!(
+			"{} requested to spawn a copy of {}",
+			env.data().0,
+			addr
+		));
+
 		env.data()
 			.1
 			.do_spawn_actor(Some(env.data().0), addr)
@@ -248,30 +255,37 @@ impl Runtime for Rt {
 		src: impl AsRef<[u8]>,
 		privileged: bool,
 	) -> Result<Address, Error> {
+		log("255");
 		let mut slots = self
 			.free_slots
 			.write()
 			.map_err(|_| NoneError)
 			.context(LockSnafu)?;
-		let mut children = self
-			.children
-			.write()
-			.map_err(|_| NoneError)
-			.context(LockSnafu)?;
+		log("261");
+		log("here");
+		let lock = self.children.try_write();
+		log(&format!("{:?}", lock.is_ok()));
+		let mut children = lock.map_err(|_| NoneError).context(LockSnafu)?;
+
+		log("268");
 
 		// Use the most recently freed process ID as the ID of the new process,
 		// or use the index of a new slot
 		let slot: Address = if let Some(free_slot) = slots.pop() {
 			free_slot
 		} else {
+			log("275");
 			let new_slot =
 				TryInto::<u32>::try_into(children.len()).map_err(|_| Error::NoFreeAddrs)?;
 			children.push(None);
+			log("279");
 
 			NonZeroU32::new(new_slot)
 				.ok_or(Error::NoFreeAddrs)
 				.map(NonZeroU32::get)?
 		};
+
+		log("281");
 
 		let mut store = Store::default();
 		let module = Module::new(&store, src.as_ref())
@@ -309,6 +323,8 @@ impl Runtime for Rt {
 			}
 		};
 
+		log("319");
+
 		let instance = Instance::new(&mut store, &module, &imports)
 			.context(InstantiationSnafu)
 			.context(ModuleSnafu)?;
@@ -327,9 +343,11 @@ impl Runtime for Rt {
 			store: ReentrantMutex::new(RefCell::new(store)),
 		};
 
+		log("339");
+
 		// Addresses are just indices in the set of current children
 		// (ID's reused if a slot is freed)
-		children[slot as usize] = Some(actor);
+		children[slot as usize] = Some(Arc::new(actor));
 
 		Ok(slot)
 	}
@@ -341,37 +359,45 @@ impl Runtime for Rt {
 	) -> Vec<Result<(), Error>> {
 		let handler_name = format!("handle_{}", msg_name);
 
-		if let Ok(ref children) = self.children.read() {
+		// Obtain an immutable copy of the children of the runtime
+		let children = if let Some(children) = self.children.read().ok().map(|children| {
 			children
 				.iter()
 				.map(Option::as_ref)
 				.filter_map(identity)
-				.map(|ref child| {
-					child
-						.instance
-						.exports
-						.get_function(&handler_name)
-						.context(ExportSnafu)
-						.context(ModuleSnafu)
-						.and_then(|ref handler| {
-							let lock = child.store.lock();
-
-							// Reallocate args with the sender being the master process
-							let mut proper_params = params.to_vec();
-							proper_params.push(Value::I32(0));
-
-							let mut locked = lock.borrow_mut();
-
-							handler
-								.call(locked.deref_mut(), proper_params.as_slice())
-								.map(|_| ())
-								.context(RuntimeSnafu)
-								.context(ModuleSnafu)
-						})
-				})
-				.collect::<Vec<_>>()
+				.map(|child| child.clone())
+				.collect::<Vec<Arc<Actor>>>()
+		}) {
+			children
 		} else {
-			Vec::new()
-		}
+			return Vec::new();
+		};
+
+		children
+			.into_iter()
+			.map(|ref child| {
+				child
+					.instance
+					.exports
+					.get_function(&handler_name)
+					.context(ExportSnafu)
+					.context(ModuleSnafu)
+					.and_then(|ref handler| {
+						let lock = child.store.lock();
+
+						// Reallocate args with the sender being the master process
+						let mut proper_params = params.to_vec();
+						proper_params.push(Value::I32(0));
+
+						let mut locked = lock.borrow_mut();
+
+						handler
+							.call(locked.deref_mut(), proper_params.as_slice())
+							.map(|_| ())
+							.context(RuntimeSnafu)
+							.context(ModuleSnafu)
+					})
+			})
+			.collect::<Vec<_>>()
 	}
 }

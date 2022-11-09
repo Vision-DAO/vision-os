@@ -6,7 +6,7 @@ use vision_utils::{
 	types::Address,
 };
 
-use std::{ffi::CString, sync::RwLock};
+use std::{ffi::CString, ptr, sync::RwLock};
 
 macro_rules! eassert {
 	($cond:expr) => {
@@ -53,9 +53,18 @@ static OWNER: RwLock<Option<Address>> = RwLock::new(None);
 /// The contents of the memory cell.
 static VAL: RwLock<Vec<u8>> = RwLock::new(Vec::new());
 
-#[with_bindings(self)]
+extern "C" {
+	fn print(s: i32);
+}
+
 #[no_mangle]
 pub extern "C" fn handle_allocate(from: Address, size: u32) -> Result<Address, Error> {
+	unsafe {
+		if let Ok(msg) = CString::new("handling allocate") {
+			print(msg.as_ptr() as i32);
+		}
+	};
+
 	// Require that we are a manager to allocate memory
 	ensure!(
 		OWNER
@@ -66,7 +75,19 @@ pub extern "C" fn handle_allocate(from: Address, size: u32) -> Result<Address, E
 		NotAllowedSnafu
 	);
 
+	unsafe {
+		if let Ok(msg) = CString::new("79") {
+			print(msg.as_ptr() as i32);
+		}
+	};
+
 	let memcell = spawn_actor(address());
+
+	unsafe {
+		if let Ok(msg) = CString::new("spawned child") {
+			print(msg.as_ptr() as i32);
+		}
+	};
 
 	// Grow the memory cell by the specified size
 	let msg_kind = CString::new("grow").unwrap();
@@ -78,6 +99,32 @@ pub extern "C" fn handle_allocate(from: Address, size: u32) -> Result<Address, E
 
 	Ok(memcell)
 }
+
+/* Manually-generated ABI code for bootstrapping macro */
+
+pub static PIPELINE_ALLOCATE: RwLock<Option<Result<Address, Error>>> = RwLock::new(None);
+
+#[macro_export]
+macro_rules! use_allocate {
+	() => {
+		#[no_mangle]
+		pub extern "C" fn handle_allocate(from: Address, arg: Address) {
+
+			PIPELINE_ALLOCATE.
+		}
+	}
+}
+
+#[cfg(feature = "module")]
+#[no_mangle]
+pub extern "C" fn allocate(to: Address, size: u32) -> Option<Result<Address, Error>> {
+	let msg_kind = CString::new("allocate").unwrap();
+
+	send_message(to, msg_kind.as_ptr() as i32, ptr::addr_of(size) as i32);
+	PIPELINE_ALLOCATE.write().unwrap().take()
+}
+
+/* End manual ABI */
 
 #[cfg(feature = "module")]
 #[no_mangle]
