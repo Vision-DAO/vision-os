@@ -7,6 +7,7 @@ use crate::common::Address;
 use std::{
 	convert::identity,
 	fmt::Display,
+	mem,
 	num::NonZeroU32,
 	ops::{Deref, DerefMut},
 	sync::{Arc, RwLock},
@@ -26,7 +27,46 @@ extern "C" {
 }
 
 type Call = Vec<u8>;
-type Mailbox = Vec<Call>;
+type Mailbox = HashMap<String, Vec<Call>>;
+
+struct USPS {
+	boxes: Vec<Mailbox>,
+	n_queued: usize,
+}
+
+impl USPS {
+	fn new(n_queued: usize) -> Self {
+		Self {
+			boxes: (0..=n_queued).map(|_| HashMap::new()).collect(),
+			n_queued,
+		}
+	}
+
+	fn send_to(&mut self, to: Address, msg_name: String, args: Vec<Call>) -> Result<(), Error> {
+		self.boxes
+			.get_mut(to)?
+			.entry(msg_name)
+			.or_default()
+			.push(args);
+
+		self.n_queued += 1;
+	}
+
+	fn push(&mut self) {
+		self.boxes.push(HashMap::new());
+	}
+
+	fn drain(&mut self) -> Vec<Mailbox> {
+		self.n_queued = 0;
+		let new_boxes = self
+			.boxes
+			.iter()
+			.map(|_| HashMap::new())
+			.collect::<Vec<_>>();
+
+		mem::replace(&mut self.boxes, new_boxes)
+	}
+}
 
 /// A naive garbage-collected implementation of the VVM scheduler.
 #[derive(Clone)]
@@ -37,7 +77,8 @@ pub struct Rt {
 	// Process slots that have been freed, and are available for use
 	free_slots: Arc<RwLock<Vec<Address>>>,
 
-	mailboxes: Arc<RwLock<Vec<Mailbox>>>,
+	// Queued messages for sending to handlers per actor
+	mailboxes: Arc<RwLock<USPS>>,
 }
 
 /// A handle to the runtime exposed to runtime API methods allowing
@@ -75,6 +116,7 @@ impl Default for Rt {
 		Self {
 			children: Arc::new(RwLock::new(vec![None])),
 			free_slots: Arc::new(RwLock::new(Vec::new())),
+			mailboxes: Arc::new(RwLock::new(USPS::new(0))),
 		}
 	}
 }
@@ -215,9 +257,12 @@ impl Rt {
 
 		log("197");
 
-		handler
-			.call(recv_store.deref_mut(), args.as_slice())
-			.unwrap();
+		env.data()
+			.1
+			.mailboxes
+			.write()
+			.ok()?
+			.send_to(addr, msg_name, args);
 
 		log("handled");
 
@@ -295,9 +340,14 @@ impl Runtime for Rt {
 			.context(LockSnafu)?;
 		log("261");
 		log("here");
-		let lock = self.children.try_write();
+		let lock = self.children.write();
 		log(&format!("{:?}", lock.is_ok()));
 		let mut children = lock.map_err(|_| NoneError).context(LockSnafu)?;
+		let mut mailboxes = self
+			.mailboxes
+			.write()
+			.map_err(|_| NoneError)
+			.context(LockSnafu)?;
 
 		log("268");
 
@@ -310,6 +360,7 @@ impl Runtime for Rt {
 			let new_slot =
 				TryInto::<u32>::try_into(children.len()).map_err(|_| Error::NoFreeAddrs)?;
 			children.push(None);
+			mailboxes.push();
 			log("279");
 
 			NonZeroU32::new(new_slot)
@@ -387,11 +438,7 @@ impl Runtime for Rt {
 		Ok(slot)
 	}
 
-	fn impulse(
-		&self,
-		msg_name: impl AsRef<str> + Display,
-		params: impl Deref<Target = [Val]>,
-	) -> Vec<Result<(), Error>> {
+	fn impulse(&self, msg_name: impl AsRef<str> + Display, params: impl Deref<Target = [Val]>) {
 		let handler_name = format!("handle_{}", msg_name);
 
 		// Obtain an immutable copy of the children of the runtime
@@ -408,33 +455,44 @@ impl Runtime for Rt {
 			return Vec::new();
 		};
 
-		children
-			.into_iter()
-			.map(|ref child| {
-				child
-					.instance
-					.exports
-					.get_function(&handler_name)
-					.context(ExportSnafu)
-					.context(ModuleSnafu)
-					.and_then(|ref handler| {
-						let mut lock = child
-							.store
-							.try_write()
-							.map_err(|_| NoneError)
-							.context(LockSnafu)?;
+		children.into_iter().for_each(|ref child| {
+			child
+				.instance
+				.exports
+				.get_function(&handler_name)
+				.context(ExportSnafu)
+				.context(ModuleSnafu)
+				.and_then(|ref handler| {
+					let mut lock = child
+						.store
+						.try_write()
+						.map_err(|_| NoneError)
+						.context(LockSnafu)?;
 
-						// Reallocate args with the sender being the master process
-						let mut proper_params = params.to_vec();
-						proper_params.push(Value::I32(0));
+					// Reallocate args with the sender being the master process
+					let mut proper_params = params.to_vec();
+					proper_params.push(Value::I32(0));
 
-						handler
-							.call(lock.deref_mut(), proper_params.as_slice())
-							.map(|_| ())
-							.context(RuntimeSnafu)
-							.context(ModuleSnafu)
-					})
-			})
-			.collect::<Vec<_>>()
+					if let Err(e) = handler
+						.call(lock.deref_mut(), proper_params.as_slice())
+						.map(|_| ())
+						.context(RuntimeSnafu)
+						.context(ModuleSnafu)
+					{
+						log(format!("{:?}", e));
+					}
+				})
+		});
+
+		loop {
+			let queued = {
+				let lock = self
+					.mailboxes
+					.write()
+					.map_err(|_| NoneError)
+					.context(LockSnafu)?
+					.deref_mut();
+			};
+		}
 	}
 }
