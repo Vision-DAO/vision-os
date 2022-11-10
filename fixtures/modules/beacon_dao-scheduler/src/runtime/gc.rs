@@ -5,7 +5,6 @@ use super::{
 use crate::common::Address;
 
 use std::{
-	cell::RefCell,
 	convert::identity,
 	fmt::Display,
 	num::NonZeroU32,
@@ -13,7 +12,6 @@ use std::{
 	sync::{Arc, RwLock},
 };
 
-use parking_lot::ReentrantMutex;
 use snafu::{NoneError, ResultExt};
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasmer::{
@@ -27,6 +25,9 @@ extern "C" {
 	fn log(s: &str);
 }
 
+type Call = Vec<u8>;
+type Mailbox = Vec<Call>;
+
 /// A naive garbage-collected implementation of the VVM scheduler.
 #[derive(Clone)]
 pub struct Rt {
@@ -35,6 +36,8 @@ pub struct Rt {
 
 	// Process slots that have been freed, and are available for use
 	free_slots: Arc<RwLock<Vec<Address>>>,
+
+	mailboxes: Arc<RwLock<Vec<Mailbox>>>,
 }
 
 /// A handle to the runtime exposed to runtime API methods allowing
@@ -44,9 +47,9 @@ pub struct RtContext(Rt, Address);
 
 /// The source code of an actor, and its current state.
 struct Actor {
-	module: Arc<ReentrantMutex<Module>>,
+	module: Arc<RwLock<Module>>,
 	instance: Instance,
-	store: ReentrantMutex<RefCell<Store>>,
+	store: Arc<RwLock<Store>>,
 	src: Vec<u8>,
 }
 
@@ -144,7 +147,7 @@ impl Rt {
 				.flatten()?
 				.clone()
 		};
-		let recv_store = recv.store.lock();
+		let mut recv_store = recv.store.try_write().ok()?;
 
 		log("137");
 
@@ -155,7 +158,7 @@ impl Rt {
 		let handler = handler.ok()?;
 
 		// Deref args expected by the handler from the message buffer
-		let (args, _) = handler.ty(recv_store.borrow_mut().deref_mut()).params()[1..]
+		let (args, _) = handler.ty(recv_store.deref_mut()).params()[1..]
 			.iter()
 			.fold(
 				([Value::I32(from as i32)].to_vec(), 0),
@@ -213,7 +216,7 @@ impl Rt {
 		log("197");
 
 		handler
-			.call(recv_store.borrow_mut().deref_mut(), args.as_slice())
+			.call(recv_store.deref_mut(), args.as_slice())
 			.unwrap();
 
 		log("handled");
@@ -370,9 +373,9 @@ impl Runtime for Rt {
 		// Initialize an actor for the module, and call its initializer
 		let actor = Actor {
 			instance,
-			module: Arc::new(ReentrantMutex::new(module)),
+			module: Arc::new(RwLock::new(module)),
 			src: src.as_ref().to_vec(),
-			store: ReentrantMutex::new(RefCell::new(store)),
+			store: Arc::new(RwLock::new(store)),
 		};
 
 		log("339");
@@ -415,16 +418,18 @@ impl Runtime for Rt {
 					.context(ExportSnafu)
 					.context(ModuleSnafu)
 					.and_then(|ref handler| {
-						let lock = child.store.lock();
+						let mut lock = child
+							.store
+							.try_write()
+							.map_err(|_| NoneError)
+							.context(LockSnafu)?;
 
 						// Reallocate args with the sender being the master process
 						let mut proper_params = params.to_vec();
 						proper_params.push(Value::I32(0));
 
-						let mut locked = lock.borrow_mut();
-
 						handler
-							.call(locked.deref_mut(), proper_params.as_slice())
+							.call(lock.deref_mut(), proper_params.as_slice())
 							.map(|_| ())
 							.context(RuntimeSnafu)
 							.context(ModuleSnafu)

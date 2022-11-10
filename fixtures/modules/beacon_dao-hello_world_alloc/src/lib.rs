@@ -1,9 +1,6 @@
-use beacon_dao_logger::{alias_service, info, use_alias_service, use_info};
+use beacon_dao_logger::{alias_service, info};
 use vision_derive::with_bindings;
 use vision_utils::types::Address;
-
-use_info!();
-use_alias_service!();
 
 #[cfg(feature = "module")]
 #[no_mangle]
