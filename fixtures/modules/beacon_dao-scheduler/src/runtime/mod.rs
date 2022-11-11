@@ -52,5 +52,5 @@ pub trait Runtime {
 		&self,
 		msg_name: impl AsRef<str> + Display,
 		params: impl Deref<Target = [Val]>,
-	) -> Vec<Result<(), Error>>;
+	) -> Result<(), Error>;
 }
