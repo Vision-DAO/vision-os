@@ -93,8 +93,6 @@ pub extern "C" fn handle_allocate(from: Address, size: u32) -> Address {
 #[no_mangle]
 #[with_bindings(self)]
 pub extern "C" fn handle_read(from: Address, offset: u32) -> u8 {
-	assert_isowner!(from);
-
 	VAL.read()
 		.unwrap()
 		.get(offset as usize)
@@ -125,4 +123,10 @@ pub extern "C" fn handle_grow(from: Address, size: u32) {
 			lock.push(0);
 		}
 	}
+}
+
+#[no_mangle]
+#[with_bindings(self)]
+pub extern "C" fn handle_len(from: Address) -> u32 {
+	VAL.read().unwrap().len()
 }
