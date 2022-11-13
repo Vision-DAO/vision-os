@@ -128,5 +128,5 @@ pub extern "C" fn handle_grow(from: Address, size: u32) {
 #[no_mangle]
 #[with_bindings(self)]
 pub extern "C" fn handle_len(from: Address) -> u32 {
-	VAL.read().unwrap().len()
+	VAL.read().unwrap().len().try_into().unwrap()
 }
