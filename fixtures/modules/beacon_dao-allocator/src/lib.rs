@@ -42,19 +42,9 @@ pub extern "C" fn init(owner: Address) {
 	}
 }
 
-extern "C" {
-	fn print(s: i32);
-}
-
 #[no_mangle]
 #[with_bindings(self)]
 pub extern "C" fn handle_allocate(from: Address, size: u32) -> Address {
-	unsafe {
-		if let Ok(msg) = CString::new("handling allocate") {
-			print(msg.as_ptr() as i32);
-		}
-	};
-
 	// Require that we are a manager to allocate memory
 	eassert!(
 		OWNER
@@ -65,19 +55,7 @@ pub extern "C" fn handle_allocate(from: Address, size: u32) -> Address {
 		"Cannot allocate from non-root cell."
 	);
 
-	unsafe {
-		if let Ok(msg) = CString::new("79") {
-			print(msg.as_ptr() as i32);
-		}
-	};
-
 	let memcell = spawn_actor(address());
-
-	unsafe {
-		if let Ok(msg) = CString::new(format!("spawned child {}", memcell)) {
-			print(msg.as_ptr() as i32);
-		}
-	};
 
 	// Grow the memory cell by the specified size
 	let msg_kind = CString::new("grow").unwrap();

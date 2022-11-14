@@ -31,7 +31,8 @@ pub extern "C" fn handle_info(from: Address, msg: String) {
 			.map(|alias| format!(" {alias}"))
 			.unwrap_or_default(),
 		msg
-	));
+	))
+	.unwrap();
 
 	unsafe {
 		print(msg.as_ptr() as i32);

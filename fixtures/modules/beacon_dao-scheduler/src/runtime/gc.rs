@@ -140,22 +140,16 @@ impl Rt {
 	}
 
 	fn do_log_safe(env: FunctionEnvMut<(Address, Rt)>, msg: i32) -> Option<()> {
-		log("143");
 		let children = env.data().1.children.read().ok()?;
-		log("145");
 		let logging_actor = children.get(env.data().0 as usize).map(Option::as_ref)??;
-		log("147");
 		let memory = logging_actor.instance.exports.get_memory("memory").ok()?;
-		log("149");
 
 		// Get the memory of the module calling log, and read the message they
 		// want to log from memory
 		let memory = memory.view(&env);
-		log("154");
 		let msg = <WasmPtr<u8, Memory32> as FromToNativeWasmType>::from_native(msg)
 			.read_utf8_string_with_nul(&memory)
 			.ok()?;
-		log("158");
 
 		log(msg.as_str());
 		Some(())
@@ -199,11 +193,6 @@ impl Rt {
 			msg_name
 		};
 
-		log(&format!(
-			"sending message {:?} {:?} {:?}",
-			from, addr, msg_name,
-		));
-
 		let recv = {
 			let children = self.children.read().ok()?;
 			children
@@ -214,11 +203,7 @@ impl Rt {
 		};
 		let mut recv_store = recv.store.write().ok()?;
 
-		log("137");
-
 		let handler = recv.instance.exports.get_function(msg_name.as_str());
-
-		log(&format!("to {} {} {}", addr, msg_name, handler.is_ok()));
 
 		let handler = handler.ok()?;
 
@@ -229,8 +214,6 @@ impl Rt {
 				([Value::I32(from as i32)].to_vec(), 0),
 				|(mut accum, pos), arg| {
 					let arg_size = type_size(arg);
-					log(&format!("arg size {:?} {}", arg, arg_size));
-
 					let parse_arg = |arg_val: Vec<i32>, view: &MemoryView| {
 						let bytes = arg_val
 							.clone()
@@ -244,12 +227,6 @@ impl Rt {
 
 						match arg {
 							Type::I32 => {
-								log(&format!(
-									"*{:?}: {:?} {}",
-									arg_val.clone(),
-									bytes,
-									i32::from_le_bytes(bytes.clone().try_into().ok()?)
-								));
 								Some(Value::I32(i32::from_le_bytes(bytes.try_into().ok()?)))
 							}
 							Type::I64 => {
@@ -286,8 +263,6 @@ impl Rt {
 				},
 			);
 
-		log("197");
-
 		env.data()
 			.1
 			.mailboxes
@@ -296,13 +271,10 @@ impl Rt {
 			.send_to(addr, msg_name, args)
 			.ok()?;
 
-		log("handled");
-
 		Some(())
 	}
 
 	fn do_spawn_actor(&self, spawner: Option<Address>, addr: Address) -> Result<Address, Error> {
-		log("203");
 		let child = {
 			let children = self
 				.children
@@ -317,8 +289,6 @@ impl Rt {
 		};
 
 		let src = &child.src;
-
-		log("209");
 
 		self.spawn(spawner, src, false)
 	}
@@ -340,12 +310,6 @@ impl Rt {
 	}
 
 	fn spawn_actor(env: FunctionEnvMut<(Address, Rt)>, addr: Address) -> Address {
-		log(&format!(
-			"{} requested to spawn a copy of {}",
-			env.data().0,
-			addr
-		));
-
 		env.data()
 			.1
 			.do_spawn_actor(Some(env.data().0), addr)
@@ -364,16 +328,12 @@ impl Runtime for Rt {
 		src: impl AsRef<[u8]>,
 		privileged: bool,
 	) -> Result<Address, Error> {
-		log("255");
 		let mut slots = self
 			.free_slots
 			.write()
 			.map_err(|_| NoneError)
 			.context(LockSnafu)?;
-		log("261");
-		log("here");
 		let lock = self.children.write();
-		log(&format!("{:?}", lock.is_ok()));
 		let mut children = lock.map_err(|_| NoneError).context(LockSnafu)?;
 		let mut mailboxes = self
 			.mailboxes
@@ -381,26 +341,20 @@ impl Runtime for Rt {
 			.map_err(|_| NoneError)
 			.context(LockSnafu)?;
 
-		log("268");
-
 		// Use the most recently freed process ID as the ID of the new process,
 		// or use the index of a new slot
 		let slot: Address = if let Some(free_slot) = slots.pop() {
 			free_slot
 		} else {
-			log("275");
 			let new_slot =
 				TryInto::<u32>::try_into(children.len()).map_err(|_| Error::NoFreeAddrs)?;
 			children.push(None);
 			mailboxes.push();
-			log("279");
 
 			NonZeroU32::new(new_slot)
 				.ok_or(Error::NoFreeAddrs)
 				.map(NonZeroU32::get)?
 		};
-
-		log("281");
 
 		let mut store = Store::default();
 		let module = Module::new(&store, src.as_ref())
@@ -439,20 +393,16 @@ impl Runtime for Rt {
 			}
 		};
 
-		log("344");
-
 		let instance = Instance::new(&mut store, &module, &imports)
 			.context(InstantiationSnafu)
 			.context(ModuleSnafu)?;
 
-		log("350");
 		if let Ok(init) = instance.exports.get_function("init") {
 			if let Some(addr) = spawner {
 				init.call(&mut store, &[Value::I32(addr as i32)]).unwrap();
 			}
 		}
 
-		log("357");
 		// Initialize an actor for the module, and call its initializer
 		let actor = Actor {
 			instance,
@@ -460,8 +410,6 @@ impl Runtime for Rt {
 			src: src.as_ref().to_vec(),
 			store: Arc::new(RwLock::new(store)),
 		};
-
-		log("339");
 
 		// Addresses are just indices in the set of current children
 		// (ID's reused if a slot is freed)
@@ -502,11 +450,6 @@ impl Runtime for Rt {
 			// Reallocate args with the sender being the master process
 			let mut proper_params = params.to_vec();
 			proper_params.push(Value::I32(0));
-
-			log(&format!(
-				"sending impulse message {} to process {}",
-				handler_name, i
-			));
 
 			if let Err(e) = handler
 				.call(lock.deref_mut(), proper_params.as_slice())
