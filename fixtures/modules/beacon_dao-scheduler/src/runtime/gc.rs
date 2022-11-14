@@ -140,16 +140,22 @@ impl Rt {
 	}
 
 	fn do_log_safe(env: FunctionEnvMut<(Address, Rt)>, msg: i32) -> Option<()> {
+		log("143");
 		let children = env.data().1.children.read().ok()?;
+		log("145");
 		let logging_actor = children.get(env.data().0 as usize).map(Option::as_ref)??;
+		log("147");
 		let memory = logging_actor.instance.exports.get_memory("memory").ok()?;
+		log("149");
 
 		// Get the memory of the module calling log, and read the message they
 		// want to log from memory
 		let memory = memory.view(&env);
+		log("154");
 		let msg = <WasmPtr<u8, Memory32> as FromToNativeWasmType>::from_native(msg)
 			.read_utf8_string_with_nul(&memory)
 			.ok()?;
+		log("158");
 
 		log(msg.as_str());
 		Some(())
@@ -223,9 +229,11 @@ impl Rt {
 				([Value::I32(from as i32)].to_vec(), 0),
 				|(mut accum, pos), arg| {
 					let arg_size = type_size(arg);
+					log(&format!("arg size {:?} {}", arg, arg_size));
 
 					let parse_arg = |arg_val: Vec<i32>, view: &MemoryView| {
 						let bytes = arg_val
+							.clone()
 							.into_iter()
 							.map(|cell: i32| {
 								<WasmPtr<u8, Memory32> as FromToNativeWasmType>::from_native(cell)
@@ -236,6 +244,12 @@ impl Rt {
 
 						match arg {
 							Type::I32 => {
+								log(&format!(
+									"*{:?}: {:?} {}",
+									arg_val.clone(),
+									bytes,
+									i32::from_le_bytes(bytes.clone().try_into().ok()?)
+								));
 								Some(Value::I32(i32::from_le_bytes(bytes.try_into().ok()?)))
 							}
 							Type::I64 => {
@@ -265,7 +279,7 @@ impl Rt {
 					) {
 						accum.push(arg_val);
 
-						(accum, pos + arg_size as i32)
+						(accum, pos + (arg_size / 8) as i32)
 					} else {
 						(accum, pos)
 					}
@@ -488,6 +502,11 @@ impl Runtime for Rt {
 			// Reallocate args with the sender being the master process
 			let mut proper_params = params.to_vec();
 			proper_params.push(Value::I32(0));
+
+			log(&format!(
+				"sending impulse message {} to process {}",
+				handler_name, i
+			));
 
 			if let Err(e) = handler
 				.call(lock.deref_mut(), proper_params.as_slice())

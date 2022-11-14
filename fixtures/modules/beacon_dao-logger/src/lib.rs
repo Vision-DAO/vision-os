@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ptr, sync::RwLock};
+use std::{collections::HashMap, ffi::CString, ptr, sync::RwLock};
 
 use once_cell::sync::Lazy;
 use vision_derive::with_bindings;
@@ -21,7 +21,7 @@ pub extern "C" fn handle_info(from: Address, msg: String) {
 		fn print(s: i32);
 	}
 
-	let msg = &format!(
+	let msg = CString::new(format!(
 		"INFO [Actor #{}{}]: {}",
 		from,
 		ALIASES
@@ -31,9 +31,9 @@ pub extern "C" fn handle_info(from: Address, msg: String) {
 			.map(|alias| format!(" {alias}"))
 			.unwrap_or_default(),
 		msg
-	);
+	));
 
 	unsafe {
-		print(ptr::addr_of!(msg) as i32);
+		print(msg.as_ptr() as i32);
 	}
 }
