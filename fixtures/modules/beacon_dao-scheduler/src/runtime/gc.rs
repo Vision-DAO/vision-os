@@ -19,12 +19,6 @@ use wasmer::{
 	Module, Store, Type, Val, Value, WasmPtr,
 };
 
-#[wasm_bindgen]
-extern "C" {
-	#[wasm_bindgen(js_namespace = console)]
-	fn log(s: &str);
-}
-
 type Call = Vec<Value>;
 type Mailbox = HashMap<String, Vec<Call>>;
 
@@ -137,26 +131,6 @@ impl Rt {
 		} else {
 			Vec::new()
 		}
-	}
-
-	fn do_log_safe(env: FunctionEnvMut<(Address, Rt)>, msg: i32) -> Option<()> {
-		let children = env.data().1.children.read().ok()?;
-		let logging_actor = children.get(env.data().0 as usize).map(Option::as_ref)??;
-		let memory = logging_actor.instance.exports.get_memory("memory").ok()?;
-
-		// Get the memory of the module calling log, and read the message they
-		// want to log from memory
-		let memory = memory.view(&env);
-		let msg = <WasmPtr<u8, Memory32> as FromToNativeWasmType>::from_native(msg)
-			.read_utf8_string_with_nul(&memory)
-			.ok()?;
-
-		log(msg.as_str());
-		Some(())
-	}
-
-	fn log_safe(env: FunctionEnvMut<(Address, Rt)>, msg: i32) {
-		Self::do_log_safe(env, msg).unwrap();
 	}
 
 	fn do_send_message(
@@ -369,6 +343,16 @@ impl Runtime for Rt {
 		let env = FunctionEnv::new(&mut store, slot);
 		let address_fn = Function::new_typed_with_env(&mut store, &env, Self::address);
 		let env = FunctionEnv::new(&mut store, (slot, self.clone()));
+
+		// Gets a reference to the global OS display (canvas)
+		let canvas_env = {
+			let document = web_sys::window()
+				.ok_or(Error::MissingWindow)
+				.document()
+				.ok_or(Error::MissingWindow)?;
+
+			FunctionEnv::new(&mut store)
+		};
 		let imports = if privileged {
 			wasmer::imports! {
 				"env" => {
@@ -378,6 +362,7 @@ impl Runtime for Rt {
 					// Gets the address of the calling actor
 					"address" => address_fn,
 					"print" => Function::new_typed_with_env(&mut store, &env, Self::log_safe),
+					"fillRect" => Function::new_typed_with_env(&mut store, &canvas_env, Self::fillrect_safe),
 				},
 			}
 		} else {

@@ -18,3 +18,4 @@ wasmer = { version = "3.0.0-rc.1", features = ["js", "std", "wasm-types-polyfill
 snafu = "0.7.1"
 console_error_panic_hook = "0.1.7"
 parking_lot = "0.12.1"
+web-sys = { version = "0.3.60", features = ["CanvasRenderingContext2d", "Document", "Element", "HtmlCanvasElement", "Window"] }

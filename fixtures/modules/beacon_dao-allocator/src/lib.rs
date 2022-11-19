@@ -1,28 +1,28 @@
 use vision_derive_internal::with_bindings;
 use vision_utils::{
 	actor::{address, send_message, spawn_actor},
-	types::Address,
+	types::{Address, Callback},
 };
 
 use std::{ffi::CString, sync::RwLock};
 
 macro_rules! eassert {
-	($cond:expr, $msg:expr) => {
+	($cond:expr, $callback:ident) => {
 		if !$cond {
-			panic!($msg)
+			$callback(1);
 		}
 	};
 }
 
 macro_rules! assert_isowner {
-	($from:ident) => {
+	($from:ident, $callback:ident) => {
 		eassert!(
 			OWNER
 				.read()
 				.ok()
 				.map(|owner| *owner == Some($from))
 				.unwrap_or(false),
-			"Insufficient permissions."
+			$callback
 		);
 	};
 }
@@ -44,7 +44,7 @@ pub extern "C" fn init(owner: Address) {
 
 #[no_mangle]
 #[with_bindings(self)]
-pub extern "C" fn handle_allocate(from: Address, size: u32) -> Address {
+pub extern "C" fn handle_allocate(from: Address, size: u32, callback: Callback<Address>) {
 	// Require that we are a manager to allocate memory
 	eassert!(
 		OWNER
@@ -52,7 +52,7 @@ pub extern "C" fn handle_allocate(from: Address, size: u32) -> Address {
 			.ok()
 			.map(|owner| owner.is_none())
 			.unwrap_or(false),
-		"Cannot allocate from non-root cell."
+		callback
 	);
 
 	let memcell = spawn_actor(address());
@@ -65,35 +65,39 @@ pub extern "C" fn handle_allocate(from: Address, size: u32) -> Address {
 		(&size as *const u32) as i32,
 	);
 
-	memcell
+	callback(memcell);
 }
 
 #[no_mangle]
 #[with_bindings(self)]
-pub extern "C" fn handle_read(from: Address, offset: u32) -> u8 {
-	VAL.read()
-		.unwrap()
-		.get(offset as usize)
-		.map(|byte| *byte)
-		.unwrap()
+pub extern "C" fn handle_read(from: Address, offset: u32, callback: Callback<u8>) {
+	callback(
+		VAL.read()
+			.unwrap()
+			.get(offset as usize)
+			.map(|byte| *byte)
+			.unwrap(),
+	);
 }
 
 #[no_mangle]
 #[with_bindings(self)]
-pub extern "C" fn handle_write(from: Address, offset: u32, val: u8) {
-	assert_isowner!(from);
+pub extern "C" fn handle_write(from: Address, offset: u32, val: u8, callback: Callback<u8>) {
+	assert_isowner!(from, callback);
 
 	if let Ok(mut lock) = VAL.write() {
-		eassert!((offset as usize) < lock.len(), "Out of bounds.");
+		eassert!((offset as usize) < lock.len(), callback);
 
 		lock[offset as usize] = val;
 	}
+
+	callback(0);
 }
 
 #[no_mangle]
 #[with_bindings(self)]
-pub extern "C" fn handle_grow(from: Address, size: u32) {
-	assert_isowner!(from);
+pub extern "C" fn handle_grow(from: Address, size: u32, callback: Callback<u8>) {
+	assert_isowner!(from, callback);
 
 	if let Ok(mut lock) = VAL.write() {
 		// Add `size` zero bytes to the buffer
@@ -101,10 +105,12 @@ pub extern "C" fn handle_grow(from: Address, size: u32) {
 			lock.push(0);
 		}
 	}
+
+	callback(0);
 }
 
 #[no_mangle]
 #[with_bindings(self)]
-pub extern "C" fn handle_len(from: Address) -> u32 {
-	VAL.read().unwrap().len().try_into().unwrap()
+pub extern "C" fn handle_len(from: Address, callback: Callback<u32>) {
+	callback(VAL.read().unwrap().len().try_into().unwrap());
 }

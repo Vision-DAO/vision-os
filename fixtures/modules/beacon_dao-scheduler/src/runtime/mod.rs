@@ -1,3 +1,6 @@
+pub mod api;
+
+/// Implements basic web API's for actors within the VVM.
 pub mod gc;
 
 use crate::common::Address;
@@ -24,6 +27,9 @@ pub enum Error {
 
 	#[snafu(display("No resource exists at the address"))]
 	InvalidAddressError,
+
+	#[snafu(display("No window exists for the runtime to bind to"))]
+	MissingWindow,
 }
 
 #[derive(Debug, Snafu)]

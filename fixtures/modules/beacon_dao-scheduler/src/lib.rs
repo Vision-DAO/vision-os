@@ -15,17 +15,22 @@ pub fn start() {
 	rt.spawn(
 		None,
 		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_permissions.wasm"),
-		true,
+		false,
 	)
 	.expect("Failed to start permissions service");
 
-	// Allocator service
+	// Allocator API
 	rt.spawn(
 		None,
-		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_allocator.wasm"),
-		true,
+		include_bytes!(
+			"../../target/wasm32-unknown-unknown/release/beacon_dao_allocator_manager.wasm"
+		),
+		false,
 	)
 	.expect("Failed to start allocator service");
+
+	// Logger API
+	unimplemented!();
 
 	// Logging service
 	rt.spawn(
@@ -35,6 +40,14 @@ pub fn start() {
 	)
 	.expect("Failed to start logging service");
 
+	// Default allocator service
+	rt.spawn(
+		None,
+		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_allocator.wasm"),
+		false,
+	)
+	.expect("Failed to start allocator service");
+
 	// Hello world service
 	// TODO: Remove
 	rt.spawn(
@@ -42,7 +55,7 @@ pub fn start() {
 		include_bytes!(
 			"../../target/wasm32-unknown-unknown/release/beacon_dao_hello_world_alloc.wasm"
 		),
-		true,
+		false,
 	)
 	.expect("Failed to start hello world service");
 
