@@ -84,14 +84,8 @@ pub extern "C" fn handle_allocate(
 /// Reassigns the owner of the memory cell.
 #[no_mangle]
 #[with_bindings(self)]
-pub extern "C" fn handle_reassign(
-	from: Address,
-	origin: Address,
-	new_owner: Address,
-	callback: Callback<u8>,
-) {
-	assert_isowner!(origin, callback);
-	assert_frommanager!(origin, callback);
+pub extern "C" fn handle_reassign(from: Address, new_owner: Address, callback: Callback<u8>) {
+	assert_isowner!(from, callback);
 
 	if let Ok(mut lock) = OWNER.write() {
 		lock.replace(new_owner);
@@ -118,7 +112,6 @@ pub extern "C" fn handle_read(from: Address, offset: u32, callback: Callback<u8>
 #[with_bindings(self)]
 pub extern "C" fn handle_write(from: Address, offset: u32, val: u8, callback: Callback<u8>) {
 	assert_isowner!(from, callback);
-	assert_frommanager!(origin, callback);
 
 	if let Ok(mut lock) = VAL.write() {
 		eassert!((offset as usize) < lock.len(), callback);
@@ -133,7 +126,6 @@ pub extern "C" fn handle_write(from: Address, offset: u32, val: u8, callback: Ca
 #[with_bindings(self)]
 pub extern "C" fn handle_grow(from: Address, size: u32, callback: Callback<u8>) {
 	assert_isowner!(from, callback);
-	assert_frommanager!(origin, callback);
 
 	if let Ok(mut lock) = VAL.write() {
 		// Add `size` zero bytes to the buffer
