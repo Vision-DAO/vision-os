@@ -7,8 +7,10 @@ use std::{
 };
 
 /// Marks which actors have been given permission to use different capabilities.
-static PERMISSIONS: Arc<RwLock<HashMap<String, (String, HashSet<Address>)>>> =
-	Arc::new(RwLock::new(HashMap::new()));
+lazy_static::lazy_static! {
+	static ref PERMISSIONS: Arc<RwLock<HashMap<String, (String, HashSet<Address>)>>> =
+		Arc::new(RwLock::new(HashMap::new()));
+}
 
 /// Registers a capability of the Vision OS that the user needs to consent to allowing.
 #[no_mangle]
@@ -19,7 +21,7 @@ pub fn handle_register_permission(
 	description: String,
 	callback: Callback<u8>,
 ) {
-	if let Ok(lock) = PERMISSIONS.write() {
+	if let Ok(mut lock) = PERMISSIONS.write() {
 		lock.entry(name).or_insert((description, HashSet::new()));
 
 		callback(0);
