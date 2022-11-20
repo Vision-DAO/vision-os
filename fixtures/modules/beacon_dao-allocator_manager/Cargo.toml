@@ -3,5 +3,8 @@ name = "beacon_dao-allocator_manager"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+module = []
+
 [dependencies]
-beacon_dao_permissions = { path = "../beacon_dao-permissions" }
+beacon_dao-permissions = { path = "../beacon_dao-permissions" }

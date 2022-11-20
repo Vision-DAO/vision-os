@@ -1,10 +1,14 @@
 use vision_derive::with_bindings;
 use vision_utils::types::{Address, Callback};
 
-use std::collections::{HashMap, HashSet};
+use std::{
+	collections::{HashMap, HashSet},
+	sync::{Arc, RwLock},
+};
 
 /// Marks which actors have been given permission to use different capabilities.
-static PERMISSIONS: Arc<RwLock<HashMap<String, (String, HashSet<Address>)>>>;
+static PERMISSIONS: Arc<RwLock<HashMap<String, (String, HashSet<Address>)>>> =
+	Arc::new(RwLock::new(HashMap::new()));
 
 /// Registers a capability of the Vision OS that the user needs to consent to allowing.
 #[no_mangle]
@@ -15,7 +19,7 @@ pub fn handle_register_permission(
 	description: String,
 	callback: Callback<u8>,
 ) {
-	if let Some(lock) = PERMISSIONS.write() {
+	if let Ok(lock) = PERMISSIONS.write() {
 		lock.entry(name).or_insert((description, HashSet::new()));
 
 		callback(0);
@@ -33,9 +37,9 @@ pub fn handle_has_permission(
 	permission: String,
 	callback: Callback<bool>,
 ) {
-	if let Some(lock) = PERMISSIONS.read() {
+	if let Ok(lock) = PERMISSIONS.read() {
 		callback(
-			lock.get(permission)
+			lock.get(&permission)
 				.and_then(|actors_with_perm| actors_with_perm.has(actor))
 				.unwrap_or(false),
 		);
