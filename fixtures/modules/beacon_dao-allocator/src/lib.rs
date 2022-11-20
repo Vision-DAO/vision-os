@@ -1,7 +1,7 @@
 use vision_derive_internal::with_bindings;
 use vision_utils::{
 	actor::{address, send_message, spawn_actor},
-	types::{Address, Callback},
+	types::{Address, Callback, ALLOCATOR_ADDR},
 };
 
 use std::{ffi::CString, sync::RwLock};
@@ -24,6 +24,12 @@ macro_rules! assert_isowner {
 				.unwrap_or(false),
 			$callback
 		);
+	};
+}
+
+macro_rules! assert_frommanager {
+	($from:ident, $callback:ident) => {
+		eassert!($from == ALLOCATOR_ADDR, $callback)
 	};
 }
 
@@ -85,6 +91,7 @@ pub extern "C" fn handle_reassign(
 	callback: Callback<u8>,
 ) {
 	assert_isowner!(origin, callback);
+	assert_frommanager!(origin, callback);
 
 	if let Ok(mut lock) = OWNER.write() {
 		lock.replace(new_owner);
@@ -111,6 +118,7 @@ pub extern "C" fn handle_read(from: Address, offset: u32, callback: Callback<u8>
 #[with_bindings(self)]
 pub extern "C" fn handle_write(from: Address, offset: u32, val: u8, callback: Callback<u8>) {
 	assert_isowner!(from, callback);
+	assert_frommanager!(origin, callback);
 
 	if let Ok(mut lock) = VAL.write() {
 		eassert!((offset as usize) < lock.len(), callback);
@@ -125,6 +133,7 @@ pub extern "C" fn handle_write(from: Address, offset: u32, val: u8, callback: Ca
 #[with_bindings(self)]
 pub extern "C" fn handle_grow(from: Address, size: u32, callback: Callback<u8>) {
 	assert_isowner!(from, callback);
+	assert_frommanager!(origin, callback);
 
 	if let Ok(mut lock) = VAL.write() {
 		// Add `size` zero bytes to the buffer
