@@ -44,7 +44,12 @@ pub extern "C" fn init(owner: Address) {
 
 #[no_mangle]
 #[with_bindings(self)]
-pub extern "C" fn handle_allocate(from: Address, size: u32, callback: Callback<Address>) {
+pub extern "C" fn handle_allocate(
+	from: Address,
+	origin: Address,
+	size: u32,
+	callback: Callback<Address>,
+) {
 	// Require that we are a manager to allocate memory
 	eassert!(
 		OWNER
@@ -55,7 +60,9 @@ pub extern "C" fn handle_allocate(from: Address, size: u32, callback: Callback<A
 		callback
 	);
 
+	// Set the user as the owner of the memory cell
 	let memcell = spawn_actor(address());
+	reassign(memcell, origin, Callback::new(|_| {}));
 
 	// Grow the memory cell by the specified size
 	let msg_kind = CString::new("grow").unwrap();
@@ -66,6 +73,26 @@ pub extern "C" fn handle_allocate(from: Address, size: u32, callback: Callback<A
 	);
 
 	callback(memcell);
+}
+
+/// Reassigns the owner of the memory cell.
+#[no_mangle]
+#[with_bindings(self)]
+pub extern "C" fn handle_reassign(
+	from: Address,
+	origin: Address,
+	new_owner: Address,
+	callback: Callback<u8>,
+) {
+	assert_isowner!(origin, callback);
+
+	if let Ok(mut lock) = OWNER.write() {
+		lock.replace(new_owner);
+
+		callback(0);
+	} else {
+		callback(1);
+	}
 }
 
 #[no_mangle]
