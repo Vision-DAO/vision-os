@@ -40,7 +40,7 @@ pub fn handle_has_permission(
 	if let Ok(lock) = PERMISSIONS.read() {
 		callback(
 			lock.get(&permission)
-				.and_then(|actors_with_perm| actors_with_perm.has(actor))
+				.map(|actors_with_perm| actors_with_perm.1.contains(&actor))
 				.unwrap_or(false),
 		);
 	} else {
