@@ -24,9 +24,9 @@ pub fn handle_register_permission(
 	if let Ok(mut lock) = PERMISSIONS.write() {
 		lock.entry(name).or_insert((description, HashSet::new()));
 
-		callback(0);
+		callback.call(0);
 	} else {
-		callback(1);
+		callback.call(1);
 	};
 }
 
@@ -40,13 +40,13 @@ pub fn handle_has_permission(
 	callback: Callback<bool>,
 ) {
 	if let Ok(lock) = PERMISSIONS.read() {
-		callback(
+		callback.call(
 			lock.get(&permission)
 				.map(|actors_with_perm| actors_with_perm.1.contains(&actor))
 				.unwrap_or(false),
 		);
 	} else {
-		callback(false);
+		callback.call(false);
 	}
 }
 
