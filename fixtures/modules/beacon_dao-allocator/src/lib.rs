@@ -1,7 +1,7 @@
 use vision_derive_internal::with_bindings;
 use vision_utils::{
 	actor::{address, send_message, spawn_actor},
-	types::{Address, Callback, ALLOCATOR_ADDR},
+	types::{Address, Callback},
 };
 
 use std::{ffi::CString, sync::RwLock};
@@ -9,7 +9,9 @@ use std::{ffi::CString, sync::RwLock};
 macro_rules! eassert {
 	($cond:expr, $callback:ident) => {
 		if !$cond {
-			$callback(1);
+			$callback.call(1);
+
+			return;
 		}
 	};
 }
@@ -24,12 +26,6 @@ macro_rules! assert_isowner {
 				.unwrap_or(false),
 			$callback
 		);
-	};
-}
-
-macro_rules! assert_frommanager {
-	($from:ident, $callback:ident) => {
-		eassert!($from == ALLOCATOR_ADDR, $callback)
 	};
 }
 
@@ -78,7 +74,7 @@ pub extern "C" fn handle_allocate(
 		(&size as *const u32) as i32,
 	);
 
-	callback(memcell);
+	callback.call(memcell);
 }
 
 /// Reassigns the owner of the memory cell.
@@ -90,16 +86,16 @@ pub extern "C" fn handle_reassign(from: Address, new_owner: Address, callback: C
 	if let Ok(mut lock) = OWNER.write() {
 		lock.replace(new_owner);
 
-		callback(0);
+		callback.call(0);
 	} else {
-		callback(1);
+		callback.call(1);
 	}
 }
 
 #[no_mangle]
 #[with_bindings(self)]
 pub extern "C" fn handle_read(from: Address, offset: u32, callback: Callback<u8>) {
-	callback(
+	callback.call(
 		VAL.read()
 			.unwrap()
 			.get(offset as usize)
@@ -119,7 +115,7 @@ pub extern "C" fn handle_write(from: Address, offset: u32, val: u8, callback: Ca
 		lock[offset as usize] = val;
 	}
 
-	callback(0);
+	callback.call(0);
 }
 
 #[no_mangle]
@@ -134,11 +130,11 @@ pub extern "C" fn handle_grow(from: Address, size: u32, callback: Callback<u8>) 
 		}
 	}
 
-	callback(0);
+	callback.call(0);
 }
 
 #[no_mangle]
 #[with_bindings(self)]
 pub extern "C" fn handle_len(from: Address, callback: Callback<u32>) {
-	callback(VAL.read().unwrap().len().try_into().unwrap());
+	callback.call(VAL.read().unwrap().len().try_into().unwrap());
 }
