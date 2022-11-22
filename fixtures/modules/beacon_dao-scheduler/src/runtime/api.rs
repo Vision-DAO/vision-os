@@ -1,6 +1,8 @@
 use super::gc::Rt;
 
-use web_sys::CanvasRenderingContext2d;
+use crate::common::Address;
+use wasm_bindgen::prelude::wasm_bindgen;
+use wasmer::{FromToNativeWasmType, FunctionEnvMut, Memory32, WasmPtr};
 
 #[wasm_bindgen]
 extern "C" {
@@ -10,7 +12,7 @@ extern "C" {
 
 impl Rt {
 	/* Implementation of the web console log API */
-	fn do_log_safe(env: FunctionEnvMut<(Address, Rt)>, msg: i32) -> Option<()> {
+	pub fn do_log_safe(env: FunctionEnvMut<(Address, Rt)>, msg: i32) -> Option<()> {
 		let children = env.data().1.children.read().ok()?;
 		let logging_actor = children.get(env.data().0 as usize).map(Option::as_ref)??;
 		let memory = logging_actor.instance.exports.get_memory("memory").ok()?;
@@ -26,20 +28,7 @@ impl Rt {
 		Some(())
 	}
 
-	fn log_safe(env: FunctionEnvMut<(Address, Rt)>, msg: i32) {
+	pub fn log_safe(env: FunctionEnvMut<(Address, Rt)>, msg: i32) {
 		Self::do_log_safe(env, msg).unwrap();
-	}
-
-	/* Implementation of the CanvasRenderingContext2D.fillRect API */
-	fn fillrect_safe(
-		env: FunctionEnvMut<(CanvasRenderingContext2d, Address, Rt)>,
-		x: f64,
-		y: f64,
-		width: f64,
-		height: f64,
-	) -> Option<()> {
-		env.data().0.fill_rect(x, y, width, height);
-
-		Some(())
 	}
 }

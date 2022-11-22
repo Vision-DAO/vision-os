@@ -22,6 +22,12 @@ use wasmer::{
 type Call = Vec<Value>;
 type Mailbox = HashMap<String, Vec<Call>>;
 
+#[wasm_bindgen]
+extern "C" {
+	#[wasm_bindgen(js_namespace = console)]
+	fn log(s: &str);
+}
+
 struct USPS {
 	boxes: Vec<Mailbox>,
 	n_queued: usize,
@@ -68,13 +74,13 @@ impl USPS {
 #[derive(Clone)]
 pub struct Rt {
 	// Current running processes.
-	children: Arc<RwLock<Vec<Option<Arc<Actor>>>>>,
+	pub(crate) children: Arc<RwLock<Vec<Option<Arc<Actor>>>>>,
 
 	// Process slots that have been freed, and are available for use
-	free_slots: Arc<RwLock<Vec<Address>>>,
+	pub(crate) free_slots: Arc<RwLock<Vec<Address>>>,
 
 	// Queued messages for sending to handlers per actor
-	mailboxes: Arc<RwLock<USPS>>,
+	pub(crate) mailboxes: Arc<RwLock<USPS>>,
 }
 
 /// A handle to the runtime exposed to runtime API methods allowing
@@ -84,10 +90,10 @@ pub struct RtContext(Rt, Address);
 
 /// The source code of an actor, and its current state.
 struct Actor {
-	module: Arc<RwLock<Module>>,
-	instance: Instance,
-	store: Arc<RwLock<Store>>,
-	src: Vec<u8>,
+	pub(crate) module: Arc<RwLock<Module>>,
+	pub(crate) instance: Instance,
+	pub(crate) store: Arc<RwLock<Store>>,
+	pub(crate) src: Vec<u8>,
 }
 
 // This is fine because modules, which are usually !Send + !Sync, are wrapped in a lock
@@ -344,15 +350,6 @@ impl Runtime for Rt {
 		let address_fn = Function::new_typed_with_env(&mut store, &env, Self::address);
 		let env = FunctionEnv::new(&mut store, (slot, self.clone()));
 
-		// Gets a reference to the global OS display (canvas)
-		let canvas_env = {
-			let document = web_sys::window()
-				.ok_or(Error::MissingWindow)
-				.document()
-				.ok_or(Error::MissingWindow)?;
-
-			FunctionEnv::new(&mut store)
-		};
 		let imports = if privileged {
 			wasmer::imports! {
 				"env" => {
@@ -362,7 +359,6 @@ impl Runtime for Rt {
 					// Gets the address of the calling actor
 					"address" => address_fn,
 					"print" => Function::new_typed_with_env(&mut store, &env, Self::log_safe),
-					"fillRect" => Function::new_typed_with_env(&mut store, &canvas_env, Self::fillrect_safe),
 				},
 			}
 		} else {

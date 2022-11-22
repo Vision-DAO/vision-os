@@ -3,6 +3,9 @@ name = "beacon_dao-allocator_manager"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [features]
 module = []
 

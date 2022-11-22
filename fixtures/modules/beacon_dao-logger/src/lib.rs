@@ -10,7 +10,7 @@ static ALIASES: Lazy<RwLock<HashMap<Address, String>>> = Lazy::new(|| RwLock::ne
 #[with_bindings]
 #[no_mangle]
 pub extern "C" fn handle_alias_service(from: Address, name: String, callback: Callback<u8>) {
-	if let Some(lock) = ALIASES.write() {
+	if let Some(mut lock) = ALIASES.write().ok() {
 		lock.insert(from, name);
 		callback.call(0);
 	} else {
@@ -38,12 +38,14 @@ fn inner_info(from: Address, msg: String) -> Option<()> {
 		"INFO [Actor #{}{}]: {}",
 		from,
 		ALIASES
-			.read()?
+			.read()
+			.ok()?
 			.get(&from)
 			.map(|alias| format!(" {alias}"))
 			.unwrap_or_default(),
 		msg
-	))?;
+	))
+	.ok()?;
 
 	unsafe {
 		print(msg.as_ptr() as i32);

@@ -13,7 +13,7 @@ crate-type = ["cdylib"]
 module = []
 
 [workspace]
-members = ["beacon_dao-permissions", "beacon_dao-logger", "beacon_dao-allocator", "beacon_dao-hello_world_alloc", "beacon_dao-scheduler", "beacon_dao-display_manager", "beacon_dao-allocator_manager"]
+members = ["beacon_dao-permissions", "beacon_dao-logger", "beacon_dao-allocator", "beacon_dao-hello_world_alloc", "beacon_dao-display_manager", "beacon_dao-allocator_manager", "beacon_dao-scheduler"]
 
 [build-dependencies]
 wasm-pack = "0.10.3"
