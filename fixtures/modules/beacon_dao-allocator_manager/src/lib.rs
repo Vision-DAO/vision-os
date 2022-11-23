@@ -80,7 +80,7 @@ pub extern "C" fn handle_allocate(from: Address, size: u32, callback: Callback<A
 			reassign(
 				addr,
 				from,
-				Callback::new(|_| {
+				Callback::new(move |_| {
 					callback.call(addr);
 				}),
 			);
