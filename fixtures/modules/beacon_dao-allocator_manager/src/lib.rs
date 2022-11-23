@@ -67,7 +67,7 @@ pub extern "C" fn handle_allocate(from: Address, size: u32, callback: Callback<A
 	}
 
 	unsafe {
-		let msg = CString::new("allocating on the heap").unwrap();
+		let msg = std::ffi::CString::new("allocating on the heap").unwrap();
 		print(msg.as_ptr() as i32);
 	}
 
