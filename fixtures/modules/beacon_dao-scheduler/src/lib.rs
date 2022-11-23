@@ -25,12 +25,19 @@ pub fn start() {
 		include_bytes!(
 			"../../target/wasm32-unknown-unknown/release/beacon_dao_allocator_manager.wasm"
 		),
-		false,
+		true,
 	)
 	.expect("Failed to start allocator service");
 
 	// Logger API
-	unimplemented!();
+	rt.spawn(
+		None,
+		include_bytes!(
+			"../../target/wasm32-unknown-unknown/release/beacon_dao_logger_manager.wasm"
+		),
+		false,
+	)
+	.expect("Failed to start logging service");
 
 	// Logging service
 	rt.spawn(

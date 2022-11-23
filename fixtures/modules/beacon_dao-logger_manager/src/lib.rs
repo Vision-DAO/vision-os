@@ -1,15 +1,15 @@
 use beacon_dao_permissions::{has_permission, register_permission};
-use vision_derive::{beacon_dao_allocator, with_bindings};
-use vision_utils::types::{Address, Callback, ALLOCATOR_IMPL_ADDR, PERM_ADDR};
+use vision_derive::with_bindings;
+use vision_utils::types::{Address, Callback, LOGGER_IMPL_ADDR, PERM_ADDR};
 
 use std::{ops::DerefMut, sync::RwLock};
 
-const PERM: &'static str = "change_proxy_allocator";
+const PERM: &'static str = "change_proxy_logger";
 const DESCRIPTION: &'static str =
-	"Allows the app to change which app your Vision OS uses for allocation.";
+	"Allows the app to change which app your Vision OS uses for logging.";
 
 /// The address of the actor implementing the API.
-static PROXY: RwLock<Option<Address>> = RwLock::new(Some(ALLOCATOR_IMPL_ADDR));
+static PROXY: RwLock<Option<Address>> = RwLock::new(Some(LOGGER_IMPL_ADDR));
 
 macro_rules! with_proxy {
 	() => {
@@ -40,7 +40,7 @@ pub extern "C" fn handle_change_proxy(from: Address, proxy: Address, callback: C
 	has_permission(
 		PERM_ADDR,
 		from,
-		"change_proxy_allocator".into(),
+		PERM.to_owned(),
 		Callback::new(move |has_perm: bool| {
 			if !has_perm {
 				callback.call(1);
@@ -61,17 +61,16 @@ pub extern "C" fn handle_change_proxy(from: Address, proxy: Address, callback: C
 
 #[no_mangle]
 #[with_bindings]
-pub extern "C" fn handle_allocate(from: Address, size: u32, callback: Callback<Address>) {
-	extern "C" {
-		fn print(s: i32);
-	}
-
-	unsafe {
-		let msg = CString::new("allocating on the heap").unwrap();
-		print(msg.as_ptr() as i32);
-	}
-
+pub extern "C" fn handle_alias_service(from: Address, name: String, callback: Callback<u8>) {
 	let proxy = with_proxy!();
 
-	beacon_dao_allocator::allocate(proxy, from, size, Callback::new(|addr| callback.call(addr)));
+	beacon_dao_logger::alias_service(proxy, from, name, Callback::new(|ok| callback.call(ok)));
+}
+
+#[no_mangle]
+#[with_bindings]
+pub extern "C" fn handle_info(from: Address, msg: String, callback: Callback<u8>) {
+	let proxy = with_proxy!();
+
+	beacon_dao_logger::info(proxy, from, msg, Callback::new(|ok| callback.call(ok)));
 }

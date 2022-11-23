@@ -1,4 +1,4 @@
-use beacon_dao_logger::{alias_service, info};
+use beacon_dao_logger_manager::{alias_service, info};
 use vision_derive::with_bindings;
 use vision_utils::types::{Address, Callback};
 
