@@ -1,4 +1,4 @@
-use vision_derive_internal::with_bindings;
+use vision_derive::with_bindings;
 use vision_utils::{
 	actor::{address, send_message, spawn_actor},
 	types::{Address, Callback},
@@ -45,7 +45,7 @@ pub extern "C" fn init(owner: Address) {
 }
 
 #[no_mangle]
-#[with_bindings(self)]
+#[with_bindings]
 pub extern "C" fn handle_allocate(
 	from: Address,
 	origin: Address,
@@ -79,7 +79,7 @@ pub extern "C" fn handle_allocate(
 
 /// Reassigns the owner of the memory cell.
 #[no_mangle]
-#[with_bindings(self)]
+#[with_bindings]
 pub extern "C" fn handle_reassign(from: Address, new_owner: Address, callback: Callback<u8>) {
 	assert_isowner!(from, callback);
 
@@ -93,7 +93,7 @@ pub extern "C" fn handle_reassign(from: Address, new_owner: Address, callback: C
 }
 
 #[no_mangle]
-#[with_bindings(self)]
+#[with_bindings]
 pub extern "C" fn handle_read(from: Address, offset: u32, callback: Callback<u8>) {
 	callback.call(
 		VAL.read()
@@ -105,7 +105,7 @@ pub extern "C" fn handle_read(from: Address, offset: u32, callback: Callback<u8>
 }
 
 #[no_mangle]
-#[with_bindings(self)]
+#[with_bindings]
 pub extern "C" fn handle_write(from: Address, offset: u32, val: u8, callback: Callback<u8>) {
 	assert_isowner!(from, callback);
 
@@ -119,7 +119,7 @@ pub extern "C" fn handle_write(from: Address, offset: u32, val: u8, callback: Ca
 }
 
 #[no_mangle]
-#[with_bindings(self)]
+#[with_bindings]
 pub extern "C" fn handle_grow(from: Address, size: u32, callback: Callback<u8>) {
 	assert_isowner!(from, callback);
 
@@ -134,7 +134,7 @@ pub extern "C" fn handle_grow(from: Address, size: u32, callback: Callback<u8>) 
 }
 
 #[no_mangle]
-#[with_bindings(self)]
+#[with_bindings]
 pub extern "C" fn handle_len(from: Address, callback: Callback<u32>) {
 	callback.call(VAL.read().unwrap().len().try_into().unwrap());
 }

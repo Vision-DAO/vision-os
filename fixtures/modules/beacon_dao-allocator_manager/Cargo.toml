@@ -11,5 +11,5 @@ module = []
 
 [dependencies]
 beacon_dao-permissions = { path = "../beacon_dao-permissions" }
-vision-derive = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git", features = [] }
 vision-utils = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git" }
+vision-derive-internal = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git" }
