@@ -73,7 +73,19 @@ pub extern "C" fn handle_allocate(from: Address, size: u32, callback: Callback<A
 
 	let proxy = with_proxy!();
 
-	beacon_dao_allocator::allocate(proxy, from, size, Callback::new(|addr| callback.call(addr)));
+	allocate(
+		proxy,
+		size,
+		Callback::new(|addr| {
+			reassign(
+				addr,
+				from,
+				Callback::new(|_| {
+					callback.call(addr);
+				}),
+			);
+		}),
+	);
 }
 
 /// Reassigns the owner of the memory cell.
