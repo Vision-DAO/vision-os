@@ -1,5 +1,5 @@
 use beacon_dao_permissions::{has_permission, register_permission};
-use vision_derive_internal::with_bindings;
+use vision_derive::with_bindings;
 use vision_utils::types::{Address, Callback, ALLOCATOR_IMPL_ADDR, PERM_ADDR};
 
 use std::{ops::DerefMut, sync::RwLock};
@@ -35,7 +35,7 @@ pub fn init(owner: Address) {
 /// Bare API methods, which are proxied to PROXY, if it exists
 
 #[no_mangle]
-#[with_bindings(self)]
+#[with_bindings]
 pub extern "C" fn handle_change_proxy(from: Address, proxy: Address, callback: Callback<u8>) {
 	has_permission(
 		PERM_ADDR,
@@ -60,7 +60,7 @@ pub extern "C" fn handle_change_proxy(from: Address, proxy: Address, callback: C
 }
 
 #[no_mangle]
-#[with_bindings(self)]
+#[with_bindings]
 pub extern "C" fn handle_allocate(from: Address, size: u32, callback: Callback<Address>) {
 	extern "C" {
 		fn print(s: i32);
@@ -74,4 +74,11 @@ pub extern "C" fn handle_allocate(from: Address, size: u32, callback: Callback<A
 	let proxy = with_proxy!();
 
 	beacon_dao_allocator::allocate(proxy, from, size, Callback::new(|addr| callback.call(addr)));
+}
+
+/// Reassigns the owner of the memory cell.
+#[no_mangle]
+#[with_bindings]
+pub extern "C" fn handle_reassign(from: Address, new_owner: Address, callback: Callback<u8>) {
+	unimplemented!()
 }
