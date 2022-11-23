@@ -76,7 +76,7 @@ pub extern "C" fn handle_allocate(from: Address, size: u32, callback: Callback<A
 	allocate(
 		proxy,
 		size,
-		Callback::new(|addr| {
+		Callback::new(move |addr| {
 			reassign(
 				addr,
 				from,
