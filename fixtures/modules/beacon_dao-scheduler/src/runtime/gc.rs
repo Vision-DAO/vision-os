@@ -28,7 +28,7 @@ extern "C" {
 	fn log(s: &str);
 }
 
-struct USPS {
+pub(crate) struct USPS {
 	boxes: Vec<Mailbox>,
 	n_queued: usize,
 }
@@ -89,7 +89,7 @@ pub struct Rt {
 pub struct RtContext(Rt, Address);
 
 /// The source code of an actor, and its current state.
-struct Actor {
+pub(crate) struct Actor {
 	pub(crate) module: Arc<RwLock<Module>>,
 	pub(crate) instance: Instance,
 	pub(crate) store: Arc<RwLock<Store>>,
