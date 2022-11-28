@@ -9,12 +9,19 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[[bin]]
+path = "src/main.rs"
+name = "vision"
+
 [features]
-module = []
+default = []
+module = ["wasm"]
+wasm = ["wasmer/js", "wasmer/wasm-types-polyfill", "wasmer/std"]
+cli = ["wasmer/sys-default"]
 
 [dependencies]
 wasm-bindgen = "0.2"
-wasmer = { version = "3.0.0-rc.1", features = ["js", "std", "wasm-types-polyfill"], default-features = false }
+wasmer = { version = "3.0.2", default-features = false }
 snafu = "0.7.1"
 console_error_panic_hook = "0.1.7"
 parking_lot = "0.12.1"

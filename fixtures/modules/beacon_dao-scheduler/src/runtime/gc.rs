@@ -16,7 +16,7 @@ use snafu::{NoneError, ResultExt};
 use wasm_bindgen::prelude::wasm_bindgen;
 use wasmer::{
 	FromToNativeWasmType, Function, FunctionEnv, FunctionEnvMut, Instance, Memory32, MemoryView,
-	Module, Store, Type, Val, Value, WasmPtr,
+	Module, Store, Type, Value, WasmPtr,
 };
 
 type Call = Vec<Value>;
@@ -41,7 +41,7 @@ impl USPS {
 		}
 	}
 
-	fn send_to(&mut self, to: Address, msg_name: String, args: Vec<Val>) -> Result<(), Error> {
+	fn send_to(&mut self, to: Address, msg_name: String, args: Vec<Value>) -> Result<(), Error> {
 		self.boxes
 			.get_mut(to as usize)
 			.ok_or(Error::InvalidAddressError)?
@@ -402,7 +402,7 @@ impl Runtime for Rt {
 	fn impulse(
 		&self,
 		msg_name: impl AsRef<str> + Display,
-		params: impl Deref<Target = [Val]>,
+		params: impl Deref<Target = [Value]>,
 	) -> Result<(), Error> {
 		let handler_name = format!("handle_{}", msg_name);
 

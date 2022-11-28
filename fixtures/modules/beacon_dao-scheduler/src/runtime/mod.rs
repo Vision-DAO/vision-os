@@ -5,7 +5,7 @@ pub mod gc;
 
 use crate::common::Address;
 use snafu::Snafu;
-use wasmer::{ExportError, InstantiationError, RuntimeError, Val};
+use wasmer::{ExportError, InstantiationError, RuntimeError, Value};
 
 use std::{
 	fmt::{Debug, Display},
@@ -57,6 +57,6 @@ pub trait Runtime {
 	fn impulse(
 		&self,
 		msg_name: impl AsRef<str> + Display,
-		params: impl Deref<Target = [Val]>,
+		params: impl Deref<Target = [Value]>,
 	) -> Result<(), Error>;
 }
