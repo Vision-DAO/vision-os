@@ -12,8 +12,8 @@ use std::{
 	sync::{Arc, RwLock},
 };
 
+use super::api::log;
 use snafu::{NoneError, ResultExt};
-use wasm_bindgen::prelude::wasm_bindgen;
 use wasmer::{
 	FromToNativeWasmType, Function, FunctionEnv, FunctionEnvMut, Instance, Memory32, MemoryView,
 	Module, Store, Type, Value, WasmPtr,
@@ -21,12 +21,6 @@ use wasmer::{
 
 type Call = Vec<Value>;
 type Mailbox = HashMap<String, Vec<Call>>;
-
-#[wasm_bindgen]
-extern "C" {
-	#[wasm_bindgen(js_namespace = console)]
-	fn log(s: &str);
-}
 
 pub(crate) struct USPS {
 	boxes: Vec<Mailbox>,

@@ -1,13 +1,21 @@
 use super::gc::Rt;
 
 use crate::common::Address;
-use wasm_bindgen::prelude::wasm_bindgen;
 use wasmer::{FromToNativeWasmType, FunctionEnvMut, Memory32, WasmPtr};
 
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::wasm_bindgen;
+
+#[cfg(feature = "wasm")]
 #[wasm_bindgen]
 extern "C" {
 	#[wasm_bindgen(js_namespace = console)]
-	fn log(s: &str);
+	pub fn log(s: &str);
+}
+
+#[cfg(feature = "cli")]
+pub fn log(s: &str) {
+	println!("{}", s);
 }
 
 impl Rt {
