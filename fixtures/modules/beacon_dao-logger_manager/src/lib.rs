@@ -62,6 +62,18 @@ pub extern "C" fn handle_change_proxy(from: Address, proxy: Address, callback: C
 #[no_mangle]
 #[with_bindings]
 pub extern "C" fn handle_alias_service(from: Address, name: String, callback: Callback<u8>) {
+	extern "C" {
+		fn print(s: i32);
+	}
+
+	{
+		let msg = std::ffi::CString::new("test").unwrap();
+
+		unsafe {
+			print(msg.as_ptr() as i32);
+		}
+	}
+
 	let proxy = with_proxy!();
 
 	beacon_dao_logger::alias_service(proxy, from, name, Callback::new(|ok| callback.call(ok)));

@@ -1,6 +1,10 @@
 [env]
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 
+[tasks.run]
+workspace = false
+dependencies = ["build_all_flow", "run_scheduler"]
+
 [tasks.build]
 workspace = false
 dependencies = ["build_all_flow", "build_scheduler"]
@@ -8,6 +12,11 @@ dependencies = ["build_all_flow", "build_scheduler"]
 [tasks.build_scheduler]
 script = '''
 cd beacon_dao-scheduler && wasm-pack build --target web --features wasm --release --features module
+'''
+
+[tasks.run_scheduler]
+script = '''
+cd beacon_dao-scheduler && cargo run --features cli
 '''
 
 [tasks.build_all_flow]

@@ -62,15 +62,6 @@ pub extern "C" fn handle_change_proxy(from: Address, proxy: Address, callback: C
 #[no_mangle]
 #[with_bindings]
 pub extern "C" fn handle_allocate(from: Address, size: u32, callback: Callback<Address>) {
-	extern "C" {
-		fn print(s: i32);
-	}
-
-	unsafe {
-		let msg = std::ffi::CString::new("allocating on the heap").unwrap();
-		print(msg.as_ptr() as i32);
-	}
-
 	let proxy = with_proxy!();
 
 	allocate(
