@@ -68,7 +68,7 @@ pub extern "C" fn handle_allocate(from: Address, size: u32, callback: Callback<A
 		proxy,
 		size,
 		Callback::new(move |addr| {
-			reassign(
+			beacon_dao_allocator::reassign(
 				addr,
 				from,
 				Callback::new(move |_| {
@@ -77,11 +77,4 @@ pub extern "C" fn handle_allocate(from: Address, size: u32, callback: Callback<A
 			);
 		}),
 	);
-}
-
-/// Reassigns the owner of the memory cell.
-#[no_mangle]
-#[with_bindings]
-pub extern "C" fn handle_reassign(from: Address, new_owner: Address, callback: Callback<u8>) {
-	unimplemented!()
 }
