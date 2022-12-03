@@ -1,5 +1,5 @@
 [package]
-name = "beacon_dao-test_ping"
+name = "beacon_dao-test_pong"
 version = "0.1.0"
 edition = "2021"
 
@@ -11,4 +11,5 @@ module = []
 
 [dependencies]
 vision-utils = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git" }
-beacon_dao-test_pong = { path = "../beacon_dao-test_pong" }
+vision-derive = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git", features = [] }
+

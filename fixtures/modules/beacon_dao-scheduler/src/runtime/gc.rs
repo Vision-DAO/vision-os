@@ -167,6 +167,8 @@ impl Rt {
 			msg_name
 		};
 
+		log(&format!("{} {} {}", from, addr, msg_name.as_str()));
+
 		let recv = {
 			let children = self.children.read().ok()?;
 			children

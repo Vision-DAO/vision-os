@@ -1,3 +1,5 @@
+pub use vision_derive::beacon_dao_allocator;
+
 use vision_derive::with_bindings;
 use vision_utils::types::{Address, Callback};
 

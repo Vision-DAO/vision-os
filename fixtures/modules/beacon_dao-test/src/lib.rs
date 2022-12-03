@@ -57,7 +57,7 @@ pub fn start() {
 	.expect("Failed to start test service");
 	rt.spawn(
 		None,
-		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_test_ping.wasm"),
+		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_test_pong.wasm"),
 		true,
 	)
 	.expect("Failed to start test service");

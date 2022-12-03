@@ -1,4 +1,4 @@
-use beacon_dao_permissions::{has_permission, register_permission};
+use beacon_dao_permissions::{beacon_dao_allocator, has_permission, register_permission};
 use vision_derive::with_bindings;
 use vision_utils::types::{Address, Callback, ALLOCATOR_IMPL_ADDR, PERM_ADDR};
 
@@ -64,7 +64,7 @@ pub extern "C" fn handle_change_proxy(from: Address, proxy: Address, callback: C
 pub extern "C" fn handle_allocate(from: Address, size: u32, callback: Callback<Address>) {
 	let proxy = with_proxy!();
 
-	allocate(
+	beacon_dao_allocator::allocate(
 		proxy,
 		size,
 		Callback::new(move |addr| {

@@ -10,7 +10,6 @@ crate-type = ["cdylib", "rlib"]
 module = []
 
 [dependencies]
-web-sys = { version = "0.3.58", features = ["console"] }
 vision-utils = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git" }
 vision-derive-internal = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git" }
 snafu = "0.7.2"
