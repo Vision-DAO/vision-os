@@ -1,0 +1,20 @@
+[package]
+name = "beacon_dao-test"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "beacon_dao-test"
+path = "src/main.rs"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+module = ["beacon_dao-scheduler/wasm"]
+cli = ["beacon_dao-scheduler/cli"]
+
+[dependencies]
+beacon_dao-scheduler = { path = "../beacon_dao-scheduler", features = [] }
+console_error_panic_hook = "0.1.7"

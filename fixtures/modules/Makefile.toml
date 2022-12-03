@@ -5,6 +5,10 @@ CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 workspace = false
 dependencies = ["build_all_flow", "run_scheduler"]
 
+[tasks.test]
+workspace = false
+dependencies = ["build_all_flow", "run_test_runner"]
+
 [tasks.build]
 workspace = false
 dependencies = ["build_all_flow", "build_scheduler"]
@@ -19,16 +23,17 @@ script = '''
 cd beacon_dao-scheduler && cargo run --features cli
 '''
 
+[tasks.run_test_runner]
+script = '''
+cd beacon_dao-test && cargo run --features cli
+'''
+
 [tasks.build_all_flow]
 run_task = { name = "build_all", fork = true }
 
 [tasks.build_all]
 command = "cargo"
 args = ["build", "--target", "wasm32-unknown-unknown", "--release", "--features", "module"]
-
-[tasks.test]
-command = "wasm-pack"
-args = ["test", "--headless", "--firefox"]
 
 [tasks.update]
 run_task = { name = "update_all", fork = true }
