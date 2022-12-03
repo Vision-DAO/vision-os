@@ -199,8 +199,6 @@ impl Rt {
 							.collect::<Result<Vec<u8>, _>>()
 							.ok()?;
 
-						log(&format!("{:?} {:?}", arg, bytes));
-
 						match arg {
 							Type::I32 => {
 								Some(Value::I32(i32::from_le_bytes(bytes.try_into().ok()?)))
