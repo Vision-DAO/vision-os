@@ -46,7 +46,7 @@ pub extern "C" fn init(owner: Address) {
 
 #[no_mangle]
 #[with_bindings(self)]
-pub extern "C" fn handle_allocate(from: Address, size: u32, callback: Callback<Address>) {
+pub extern "C" fn handle_allocate(from: Address, callback: Callback<Address>) {
 	// Require that we are a manager to allocate memory
 	eassert!(
 		OWNER
@@ -57,18 +57,7 @@ pub extern "C" fn handle_allocate(from: Address, size: u32, callback: Callback<A
 		callback
 	);
 
-	// Set the user as the owner of the memory cell
-	let memcell = spawn_actor(address());
-
-	// Grow the memory cell by the specified size
-	let msg_kind = CString::new("grow").unwrap();
-	send_message(
-		memcell,
-		msg_kind.as_ptr() as i32,
-		(&size as *const u32) as i32,
-	);
-
-	callback.call(memcell);
+	callback.call(spawn_actor(address()));
 }
 
 /// Reassigns the owner of the memory cell.
@@ -101,7 +90,32 @@ pub extern "C" fn handle_read(from: Address, offset: u32, callback: Callback<u8>
 #[no_mangle]
 #[with_bindings(self)]
 pub extern "C" fn handle_write(from: Address, offset: u32, val: u8, callback: Callback<u8>) {
+	{
+		extern "C" {
+			fn print(s: i32);
+		}
+
+		let msg =
+			std::ffi::CString::new(format!("{} == {:?}?", from, OWNER.read().unwrap())).unwrap();
+
+		unsafe {
+			print(msg.as_ptr() as i32);
+		}
+	}
+
 	assert_isowner!(from, callback);
+
+	{
+		extern "C" {
+			fn print(s: i32);
+		}
+
+		let msg = std::ffi::CString::new(format!("allocated {:?} @ {:?}", val, offset)).unwrap();
+
+		unsafe {
+			print(msg.as_ptr() as i32);
+		}
+	}
 
 	if let Ok(mut lock) = VAL.write() {
 		eassert!((offset as usize) < lock.len(), callback);

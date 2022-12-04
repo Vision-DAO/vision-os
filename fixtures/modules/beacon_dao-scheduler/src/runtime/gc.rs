@@ -346,7 +346,8 @@ impl Runtime for Rt {
 		let address_fn = Function::new_typed_with_env(&mut store, &env, Self::address);
 		let env = FunctionEnv::new(&mut store, (slot, self.clone()));
 
-		let imports = if privileged {
+		// TODO: Fix
+		let imports = if true {
 			wasmer::imports! {
 				"env" => {
 					"send_message" => send_message_fn,

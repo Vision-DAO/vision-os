@@ -12,9 +12,7 @@ pub extern "C" fn handle_ping(from: Address) {
 
 	pong(
 		address() + 1,
-		4,
-		5,
-		6,
+		String::from("pong"),
 		Callback::new(move |val| {
 			extern "C" {
 				fn print(s: i32);
