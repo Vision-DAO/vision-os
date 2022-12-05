@@ -18,7 +18,9 @@ pub fn start() {
 	// Allocator API
 	rt.spawn(
 		None,
-		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_allocator.wasm"),
+		include_bytes!(
+			"../../target/wasm32-unknown-unknown/release/beacon_dao_allocator_manager.wasm"
+		),
 		true,
 	)
 	.expect("Failed to start allocator service");

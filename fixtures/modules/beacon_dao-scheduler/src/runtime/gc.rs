@@ -377,7 +377,9 @@ impl Runtime for Rt {
 
 		if let Ok(init) = instance.exports.get_function("init") {
 			if let Some(addr) = spawner {
+				log(&format!("calling init with sender {}", addr));
 				init.call(&mut store, &[Value::I32(addr as i32)]).unwrap();
+				log(&format!("done with init with sender {}", addr));
 			}
 		}
 

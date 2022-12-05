@@ -67,22 +67,24 @@ pub extern "C" fn handle_allocate(from: Address, callback: Callback<Address>) {
 	beacon_dao_allocator::allocate(
 		proxy,
 		Callback::new(move |addr| {
-			{
-				extern "C" {
-					fn print(s: i32);
-				}
-
-				let msg = std::ffi::CString::new("reassigning").unwrap();
-
-				unsafe {
-					print(msg.as_ptr() as i32);
-				}
-			}
-
 			beacon_dao_allocator::reassign(
-				addr,
+				proxy,
 				from,
 				Callback::new(move |_| {
+					{
+						extern "C" {
+							fn print(s: i32);
+						}
+
+						let msg =
+							std::ffi::CString::new(format!("reassigned {} to {}", addr, from))
+								.unwrap();
+
+						unsafe {
+							print(msg.as_ptr() as i32);
+						}
+					}
+
 					callback.call(addr);
 				}),
 			);
