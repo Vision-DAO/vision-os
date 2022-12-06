@@ -68,7 +68,7 @@ pub extern "C" fn handle_allocate(from: Address, callback: Callback<Address>) {
 		proxy,
 		Callback::new(move |addr| {
 			beacon_dao_allocator::reassign(
-				proxy,
+				addr,
 				from,
 				Callback::new(move |_| {
 					{
