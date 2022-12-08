@@ -71,20 +71,6 @@ pub extern "C" fn handle_allocate(from: Address, callback: Callback<Address>) {
 				addr,
 				from,
 				Callback::new(move |_| {
-					{
-						extern "C" {
-							fn print(s: i32);
-						}
-
-						let msg =
-							std::ffi::CString::new(format!("reassigned {} to {}", addr, from))
-								.unwrap();
-
-						unsafe {
-							print(msg.as_ptr() as i32);
-						}
-					}
-
 					callback.call(addr);
 				}),
 			);

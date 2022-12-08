@@ -10,7 +10,9 @@ pub extern "C" fn handle_pong(from: Address, val: String, callback: Callback<u8>
 	extern "C" {
 		fn print(s: i32);
 	}
+
 	let msg = std::ffi::CString::new(format!("pong {}", val)).unwrap();
+
 	unsafe {
 		print(msg.as_ptr() as i32);
 	}

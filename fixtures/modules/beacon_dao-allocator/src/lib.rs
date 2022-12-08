@@ -72,44 +72,11 @@ pub extern "C" fn handle_allocate(from: Address, callback: Callback<Address>) {
 #[no_mangle]
 #[with_bindings(self)]
 pub extern "C" fn handle_reassign(from: Address, new_owner: Address, callback: Callback<u8>) {
-	{
-		extern "C" {
-			fn print(s: i32);
-		}
-
-		let msg = std::ffi::CString::new(format!(
-			"req reassign from {} actual owner {:?}",
-			from,
-			OWNER.read().unwrap().clone(),
-		))
-		.unwrap();
-
-		unsafe {
-			print(msg.as_ptr() as i32);
-		}
-	}
-
 	assert_isowner!(from, callback);
 
 	if let Ok(mut lock) = OWNER.write() {
 		let old = lock.clone();
 		lock.replace(new_owner);
-
-		{
-			extern "C" {
-				fn print(s: i32);
-			}
-
-			let msg = std::ffi::CString::new(format!(
-				"handled reassign to {} from {:?} old",
-				new_owner, old
-			))
-			.unwrap();
-
-			unsafe {
-				print(msg.as_ptr() as i32);
-			}
-		}
 
 		callback.call(0);
 	} else {
@@ -132,32 +99,7 @@ pub extern "C" fn handle_read(from: Address, offset: u32, callback: Callback<u8>
 #[no_mangle]
 #[with_bindings(self)]
 pub extern "C" fn handle_write(from: Address, offset: u32, val: u8, callback: Callback<u8>) {
-	{
-		extern "C" {
-			fn print(s: i32);
-		}
-
-		let msg =
-			std::ffi::CString::new(format!("{} == {:?}?", from, OWNER.read().unwrap())).unwrap();
-
-		unsafe {
-			print(msg.as_ptr() as i32);
-		}
-	}
-
 	assert_isowner!(from, callback);
-
-	{
-		extern "C" {
-			fn print(s: i32);
-		}
-
-		let msg = std::ffi::CString::new(format!("allocated {:?} @ {:?}", val, offset)).unwrap();
-
-		unsafe {
-			print(msg.as_ptr() as i32);
-		}
-	}
 
 	if let Ok(mut lock) = VAL.write() {
 		eassert!((offset as usize) < lock.len(), callback);

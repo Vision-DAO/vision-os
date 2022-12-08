@@ -30,7 +30,7 @@ pub extern "C" fn handle_alias_service(
 	eassert!(from == LOGGER_ADDR, callback);
 
 	if let Some(mut lock) = ALIASES.write().ok() {
-		lock.insert(from, name);
+		lock.insert(origin, name);
 		callback.call(0);
 	} else {
 		callback.call(1);
@@ -43,7 +43,7 @@ pub extern "C" fn handle_alias_service(
 pub extern "C" fn handle_info(from: Address, origin: Address, msg: String, callback: Callback<u8>) {
 	eassert!(from == LOGGER_ADDR, callback);
 
-	if let Some(_) = inner_info(from, msg) {
+	if let Some(_) = inner_info(origin, msg) {
 		callback.call(0);
 	} else {
 		callback.call(1);

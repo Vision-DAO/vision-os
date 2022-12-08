@@ -12,4 +12,3 @@ module = []
 [dependencies]
 vision-utils = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git" }
 vision-derive = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git", features = [] }
-
