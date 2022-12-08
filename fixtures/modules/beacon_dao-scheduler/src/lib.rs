@@ -15,7 +15,7 @@ pub fn start() {
 	rt.spawn(
 		None,
 		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_permissions.wasm"),
-		true,
+		false,
 	)
 	.expect("Failed to start permissions service");
 
@@ -25,7 +25,7 @@ pub fn start() {
 		include_bytes!(
 			"../../target/wasm32-unknown-unknown/release/beacon_dao_allocator_manager.wasm"
 		),
-		true,
+		false,
 	)
 	.expect("Failed to start allocator service");
 
@@ -35,7 +35,7 @@ pub fn start() {
 		include_bytes!(
 			"../../target/wasm32-unknown-unknown/release/beacon_dao_logger_manager.wasm"
 		),
-		true,
+		false,
 	)
 	.expect("Failed to start logging service");
 
@@ -51,7 +51,7 @@ pub fn start() {
 	rt.spawn(
 		None,
 		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_allocator.wasm"),
-		true,
+		false,
 	)
 	.expect("Failed to start allocator service");
 
