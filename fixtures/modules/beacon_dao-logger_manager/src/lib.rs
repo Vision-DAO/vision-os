@@ -23,7 +23,7 @@ macro_rules! with_proxy {
 
 #[cfg(feature = "module")]
 #[no_mangle]
-pub fn init(owner: Address) {
+pub extern "C" fn init(owner: Address) {
 	register_permission(
 		PERM_ADDR,
 		PERM.to_owned(),

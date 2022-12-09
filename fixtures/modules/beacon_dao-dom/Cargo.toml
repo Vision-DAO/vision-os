@@ -1,0 +1,17 @@
+[package]
+name = "beacon_dao-dom"
+version = "0.1.0"
+description = "A utility for interacting with the DOM from Vision modules."
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+module = []
+
+[dependencies]
+vision-utils = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git", features = [] }
+vision-derive = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git", features = [] }
+beacon_dao-permissions = { path = "../beacon_dao-permissions", features = [] }
+once_cell = "1.16.0"

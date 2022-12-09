@@ -55,6 +55,14 @@ pub fn start() {
 	)
 	.expect("Failed to start allocator service");
 
+	// Default DOM service
+	rt.spawn(
+		None,
+		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_dom.wasm"),
+		true,
+	)
+	.expect("Failed to start DOM service.");
+
 	// Hello world service
 	// TODO: Remove
 	rt.spawn(
