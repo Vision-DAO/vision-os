@@ -1,6 +1,6 @@
 use beacon_dao_permissions::{has_permission, register_permission};
 use vision_derive::with_bindings;
-use vision_utils::types::{Address, Callback, PERM_ADDR};
+use vision_utils::types::{Address, Callback, DISPLAY_MANAGER_ADDR, PERM_ADDR};
 
 const PERM: &'static str = "control your computer";
 const DESCRIPTION: &'static str =
@@ -31,7 +31,13 @@ pub extern "C" fn handle_create_element(
 		PERM_ADDR,
 		from,
 		PERM.to_owned(),
-		Callback::new(|has_permission| {
+		Callback::new(move |has_permission: bool| {
+			if !has_permission && from != DISPLAY_MANAGER_ADDR {
+				callback.call(1);
+
+				return;
+			}
+
 			extern "C" {
 				fn append_element(k: i32, s: i32) -> u8;
 			}

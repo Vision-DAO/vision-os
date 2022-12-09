@@ -10,8 +10,8 @@ pub fn start() {
 	// Permissions service
 	rt.spawn(
 		None,
-		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_allocator.wasm"),
-		true,
+		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_permissions.wasm"),
+		false,
 	)
 	.expect("Failed to start permissions service");
 
@@ -21,22 +21,24 @@ pub fn start() {
 		include_bytes!(
 			"../../target/wasm32-unknown-unknown/release/beacon_dao_allocator_manager.wasm"
 		),
-		true,
+		false,
 	)
 	.expect("Failed to start allocator service");
 
 	// Logger API
 	rt.spawn(
 		None,
-		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_allocator.wasm"),
-		true,
+		include_bytes!(
+			"../../target/wasm32-unknown-unknown/release/beacon_dao_logger_manager.wasm"
+		),
+		false,
 	)
 	.expect("Failed to start logging service");
 
 	// Logging service
 	rt.spawn(
 		None,
-		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_allocator.wasm"),
+		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_logger.wasm"),
 		true,
 	)
 	.expect("Failed to start logging service");
@@ -45,24 +47,27 @@ pub fn start() {
 	rt.spawn(
 		None,
 		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_allocator.wasm"),
-		true,
+		false,
 	)
 	.expect("Failed to start allocator service");
 
+	// Default DOM service
+	rt.spawn(
+		None,
+		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_dom.wasm"),
+		true,
+	)
+	.expect("Failed to start DOM service.");
+
 	// Hello world service
-	// TODO: Remove
 	rt.spawn(
 		None,
-		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_test_ping.wasm"),
+		include_bytes!(
+			"../../target/wasm32-unknown-unknown/release/beacon_dao_hello_world_alloc.wasm"
+		),
 		true,
 	)
-	.expect("Failed to start test service");
-	rt.spawn(
-		None,
-		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_test_pong.wasm"),
-		true,
-	)
-	.expect("Failed to start test service");
+	.expect("Failed to start hello world service");
 
 	// Test out the hello world module
 	rt.impulse("ping", vec![]).unwrap();

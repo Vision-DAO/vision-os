@@ -63,17 +63,16 @@ pub fn start() {
 	)
 	.expect("Failed to start DOM service.");
 
-	// Hello world service
-	// TODO: Remove
+	// Display manager service
 	rt.spawn(
 		None,
 		include_bytes!(
-			"../../target/wasm32-unknown-unknown/release/beacon_dao_hello_world_alloc.wasm"
+			"../../target/wasm32-unknown-unknown/release/beacon_dao_display_manager.wasm"
 		),
 		true,
 	)
-	.expect("Failed to start hello world service");
+	.expect("Failed to start display manager.");
 
 	// Test out the hello world module
-	rt.impulse("test", vec![]).unwrap();
+	rt.impulse("display_login", vec![]).unwrap();
 }

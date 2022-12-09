@@ -61,7 +61,9 @@ impl Rt {
 		let body = document.body()?;
 
 		let node = document.create_element(kind.as_str()).ok()?;
-		node.set_text_content(Some(src.as_str()));
+		node.set_inner_html(src.as_str());
+
+		body.append_child(&node).ok()?;
 
 		Some(())
 	}
