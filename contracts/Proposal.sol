@@ -42,11 +42,6 @@ enum VoteKind {
  * spec.
  */
 contract Proposal is Ownable {
-	/* The CID of metadata associated with the Proposal describing its
-	 * contents, and the execution payload of the proposal. */
-	string public ipfsAddr;
-	string public payload;
-
 	/* The number of yes votes, total votes, and total voting addresses. */
 	uint256 public nAffirmative;
 	uint256 public nVoters;
@@ -94,23 +89,15 @@ contract Proposal is Ownable {
 	}
 
 	/**
-	 * Creates a new proposal with the given metadata, voting period length,
-	 * and parent contract. The parent contract must be an instance of the Idea
-	 * contract.
-	 *
-	 * @param _ipfsAddr - The CID of associated metadata accessible via the
-	 *  ipfsAddr method describing the contents of the proposal
-	 * @param _payload - The CID of new metadata to associate with the
-	 *  governing contract upon successful execution
+	 * Creates a new proposal given voting period length and parent contract.
+	 * The parent contract must be an instance of the Idea contract.
+         *
 	 * @param _duration - The number of seconds that the voting period will
 	 *  last, after it has begun
 	 * @param _governor - The address of the contract whose tokens represent
 	 *  votes in either direction for the proposal.
 	 */
-	constructor(string memory _ipfsAddr, string memory _payload, uint256 _duration, Idea _governor) {
-		ipfsAddr = _ipfsAddr;
-		payload = _payload;
-
+	constructor(uint256 _duration, Idea _governor) {
 		// Expiry determined after the vote is initiated
 		duration = _duration;
 		expiry = 0;
