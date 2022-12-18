@@ -307,74 +307,69 @@ impl Rt {
 		let copy_params = params
 			.into_iter()
 			.map(|param| {
-				param.as_f64().and_then(|farg| {
-					// Try getting a copy type from the JS argument
-					// Otherwise, serialize it as JSON, and pass it in as an
-					// actor address
-					if farg.fract() == 0 <u64 as TryInto<u32>>::try_into(farg as u64)
-						.or(farg as u64)
-						.map(|val| Value::I32(val))
-						.or(<f64 as TryInto<u64>>::try_into(farg)
-							.or(<f64 as TryInto<i64>>::try_into(farg))
-							.map(|val| Value::I64(val)))
-						// Serialize the fat fuck type
-						.or_else(|| {
-							// Use JSON.stringify to get a JSON repr
-							JSON::stringify(&farg)
-								.map(|farg| <JsString as Into<String>>::into(farg).into_bytes())
-								.and_then(|farg| {
-									// Make a mock memory cell to allow other actors
-									// to read this serialized info
-									self.children
-										.write()
-										.ok()
-										.and_then(|children| children.get(8).clone())
-										.and_then(|mock_allocator| {
-											mock_allocator
-												.instance
-												.exports
-												.get_function("alloc")
-												.and_then(|handler| {
-													mock_allocator
-														.store
-														.write()
-														.and_then(|store| handler.call(store))
-												})
-										})
-										.and_then(|cell| {
-											// Get a lock on the append() function
-											// which will be used to fill up the cell with
-											// serialized data
-											self.children
-												.write()
-												.ok()
-												.and_then(|children| children.get(cell).clone())
-												.and_then(|cell_actor| {
-													cell_actor
-														.instance
-														.exports
-														.get_function("append")
-														.and_then(|handler| {
-															cell_actor.store.write().and_then(
-																|store| {
-																	// Write each byte of serialized
-																	// farg into the cell
-																	farg.into_iter().for_each(
-																		|byte| {
-																			handler.call(
-																				store,
-																				&[byte],
-																			)
-																		},
-																	)
-																},
-															)
+				// Try getting a copy type from the JS argument
+				// Otherwise, serialize it as JSON, and pass it in as an
+				// actor address
+				param
+					.as_f64()
+					.and_then(|farg| {
+						if farg.fract() == 0.0 {
+							<u64 as TryInto<u32>>::try_into(farg as u64)
+								.map(|val| Value::I32(val))
+								.unwrap_or(Value::I64(farg as u64))
+						} else {
+							Some(Value::F64(farg))
+						}
+					}) // Serialize the fat fuck type
+					.or_else(|| {
+						// Use JSON.stringify to get a JSON repr
+						JSON::stringify(&param)
+							.map(|farg| <JsString as Into<String>>::into(farg).into_bytes())
+							.and_then(|farg| {
+								// Make a mock memory cell to allow other actors
+								// to read this serialized info
+								self.children
+									.write()
+									.ok()
+									.and_then(|children| children.get(8).clone())
+									.and_then(|mock_allocator| {
+										mock_allocator
+											.instance
+											.exports
+											.get_function("alloc")
+											.and_then(|handler| {
+												mock_allocator
+													.store
+													.write()
+													.and_then(|store| handler.call(store))
+											})
+									})
+									.and_then(|cell| {
+										// Get a lock on the append() function
+										// which will be used to fill up the cell with
+										// serialized data
+										self.children
+											.write()
+											.ok()
+											.and_then(|children| children.get(cell).clone())
+											.and_then(|cell_actor| {
+												cell_actor
+													.instance
+													.exports
+													.get_function("append")
+													.and_then(|handler| {
+														cell_actor.store.write().and_then(|store| {
+															// Write each byte of serialized
+															// farg into the cell
+															farg.into_iter().for_each(|byte| {
+																handler.call(store, &[byte])
+															})
 														})
-												})
-										})
-								})
-						})
-				})
+													})
+											})
+									})
+							})
+					})
 			})
 			.collect::<Result<Vec<Value>, ()>>()?;
 
