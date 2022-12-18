@@ -88,6 +88,6 @@ pub fn start() {
 
 /// Sends a message to the global runtime instance, pretending that the message was sent from the from address provided.
 #[wasm_bindgen]
-pub fn impulse(from: u32, msg_name: &str, params: Vec<JsValue>) {
-	RT.impulse_js(Some(from), msg_name, params).unwrap();
+pub fn impulse(from: u32, to: Option<u32>, msg_name: &str, params: Vec<JsValue>) {
+	RT.impulse_js(Some(from), to, msg_name, params).unwrap();
 }

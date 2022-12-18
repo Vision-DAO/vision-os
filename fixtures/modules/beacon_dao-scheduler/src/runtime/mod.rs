@@ -40,24 +40,3 @@ pub enum WasmError {
 	ExportError { source: ExportError },
 	CompileError,
 }
-
-/// A Vision Virtual Machine scheduler.
-pub trait Runtime {
-	/// Creates a new actor with the specified module code, returning the
-	/// address identifying the newly spawned actor. Also calls the
-	/// initialization function of the actor.
-	fn spawn(
-		&self,
-		spawner: Option<Address>,
-		module: impl AsRef<[u8]>,
-		privileged: bool,
-	) -> Result<Address, Error>;
-
-	/// Sends a simulated message to all actors that implement handlers for it.
-	fn impulse(
-		&self,
-		from: Option<u32>,
-		msg_name: impl AsRef<str> + Display,
-		params: impl Deref<Target = [Value]>,
-	) -> Result<(), Error>;
-}
