@@ -13,7 +13,9 @@ use std::{
 };
 
 use super::api::log;
+use js_sys::{JsString, JSON};
 use snafu::{NoneError, ResultExt};
+use wasm_bindgen::JsValue;
 use wasmer::{
 	FromToNativeWasmType, Function, FunctionEnv, FunctionEnvMut, Instance, Memory32, MemoryView,
 	Module, Store, Type, Value, WasmPtr,
@@ -293,6 +295,91 @@ impl Rt {
 	fn address(env: FunctionEnvMut<Address>) -> Address {
 		*env.data()
 	}
+
+	/// Serializes the given JavaScript values into impulse-compatible WASM values (only copy types)
+	/// Will perform an allocation if necessary
+	pub fn impulse_js(
+		&self,
+		from: Option<u32>,
+		msg_name: &str,
+		params: Vec<JsValue>,
+	) -> Result<(), Error> {
+		let copy_params = params
+			.into_iter()
+			.map(|param| {
+				param.as_f64().and_then(|farg| {
+					// Try getting a copy type from the JS argument
+					// Otherwise, serialize it as JSON, and pass it in as an
+					// actor address
+					if farg.fract() == 0 <u64 as TryInto<u32>>::try_into(farg as u64)
+						.or(farg as u64)
+						.map(|val| Value::I32(val))
+						.or(<f64 as TryInto<u64>>::try_into(farg)
+							.or(<f64 as TryInto<i64>>::try_into(farg))
+							.map(|val| Value::I64(val)))
+						// Serialize the fat fuck type
+						.or_else(|| {
+							// Use JSON.stringify to get a JSON repr
+							JSON::stringify(&farg)
+								.map(|farg| <JsString as Into<String>>::into(farg).into_bytes())
+								.and_then(|farg| {
+									// Make a mock memory cell to allow other actors
+									// to read this serialized info
+									self.children
+										.write()
+										.ok()
+										.and_then(|children| children.get(8).clone())
+										.and_then(|mock_allocator| {
+											mock_allocator
+												.instance
+												.exports
+												.get_function("alloc")
+												.and_then(|handler| {
+													mock_allocator
+														.store
+														.write()
+														.and_then(|store| handler.call(store))
+												})
+										})
+										.and_then(|cell| {
+											// Get a lock on the append() function
+											// which will be used to fill up the cell with
+											// serialized data
+											self.children
+												.write()
+												.ok()
+												.and_then(|children| children.get(cell).clone())
+												.and_then(|cell_actor| {
+													cell_actor
+														.instance
+														.exports
+														.get_function("append")
+														.and_then(|handler| {
+															cell_actor.store.write().and_then(
+																|store| {
+																	// Write each byte of serialized
+																	// farg into the cell
+																	farg.into_iter().for_each(
+																		|byte| {
+																			handler.call(
+																				store,
+																				&[byte],
+																			)
+																		},
+																	)
+																},
+															)
+														})
+												})
+										})
+								})
+						})
+				})
+			})
+			.collect::<Result<Vec<Value>, ()>>()?;
+
+		self.impulse(from, msg_name, copy_params)
+	}
 }
 
 impl Runtime for Rt {
@@ -396,6 +483,7 @@ impl Runtime for Rt {
 
 	fn impulse(
 		&self,
+		from: Option<u32>,
 		msg_name: impl AsRef<str> + Display,
 		params: impl Deref<Target = [Value]>,
 	) -> Result<(), Error> {
@@ -425,7 +513,7 @@ impl Runtime for Rt {
 
 			// Reallocate args with the sender being the master process
 			let mut proper_params = params.to_vec();
-			proper_params.push(Value::I32(0));
+			proper_params.insert(0, Value::I32(from.unwrap_or(0) as i32));
 
 			if let Err(e) = handler
 				.call(lock.deref_mut(), proper_params.as_slice())

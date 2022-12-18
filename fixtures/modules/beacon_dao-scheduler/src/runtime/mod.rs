@@ -56,6 +56,7 @@ pub trait Runtime {
 	/// Sends a simulated message to all actors that implement handlers for it.
 	fn impulse(
 		&self,
+		from: Option<u32>,
 		msg_name: impl AsRef<str> + Display,
 		params: impl Deref<Target = [Value]>,
 	) -> Result<(), Error>;

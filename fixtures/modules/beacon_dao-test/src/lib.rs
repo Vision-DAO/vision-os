@@ -70,5 +70,5 @@ pub fn start() {
 	.expect("Failed to start hello world service");
 
 	// Test out the hello world module
-	rt.impulse("ping", vec![]).unwrap();
+	rt.impulse(None, "ping", vec![]).unwrap();
 }
