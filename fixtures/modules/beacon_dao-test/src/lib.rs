@@ -1,6 +1,6 @@
 use std::panic;
 
-use beacon_dao_scheduler::runtime::{gc::Rt, Runtime};
+use beacon_dao_scheduler::runtime::gc::Rt;
 
 pub fn start() {
 	panic::set_hook(Box::new(console_error_panic_hook::hook));
@@ -70,5 +70,5 @@ pub fn start() {
 	.expect("Failed to start hello world service");
 
 	// Test out the hello world module
-	rt.impulse(None, "ping", vec![]).unwrap();
+	rt.impulse_all(None, "ping", vec![]);
 }

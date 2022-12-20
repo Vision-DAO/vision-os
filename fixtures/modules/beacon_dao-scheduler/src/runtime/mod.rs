@@ -30,6 +30,9 @@ pub enum Error {
 
 	#[snafu(display("No window exists for the runtime to bind to"))]
 	MissingWindow,
+
+	#[snafu(display("A serialization operation failed"))]
+	SerializationError,
 }
 
 #[derive(Debug, Snafu)]

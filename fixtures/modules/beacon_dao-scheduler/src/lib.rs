@@ -1,7 +1,7 @@
 pub mod common;
 pub mod runtime;
 
-use runtime::{gc::Rt, Runtime};
+use runtime::gc::Rt;
 use std::{default::Default, panic, sync::Arc};
 use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
 
@@ -90,4 +90,12 @@ pub fn start() {
 #[wasm_bindgen]
 pub fn impulse(from: u32, to: Option<u32>, msg_name: &str, params: Vec<JsValue>) {
 	RT.impulse_js(Some(from), to, msg_name, params).unwrap();
+}
+
+/// Drives the runtime to completion.
+#[wasm_bindgen]
+pub fn poll() {
+	if let Err(e) = RT.poll() {
+		panic!("event loop panicked with: {}", e);
+	}
 }

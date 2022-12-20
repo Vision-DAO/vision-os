@@ -1,6 +1,4 @@
-use super::{
-	CompileSnafu, Error, InstantiationSnafu, LockSnafu, ModuleSnafu, Runtime, RuntimeSnafu,
-};
+use super::{CompileSnafu, Error, InstantiationSnafu, LockSnafu, ModuleSnafu, RuntimeSnafu};
 use crate::common::Address;
 
 use std::{
@@ -316,63 +314,100 @@ impl Rt {
 					.and_then(|farg| {
 						if farg.fract() == 0.0 {
 							<u64 as TryInto<u32>>::try_into(farg as u64)
-								.map(|val| Value::I32(val))
-								.unwrap_or(Value::I64(farg as u64))
+								.ok()
+								.map(|val| Value::I32(val as i32))
+								.or(Some(Value::I64(farg as i64)))
 						} else {
 							Some(Value::F64(farg))
 						}
-					}) // Serialize the fat fuck type
-					.or_else(|| {
+					})
+					.ok_or(Error::SerializationError)
+					// Serialize the fat fuck type
+					.or_else(|_| {
 						// Use JSON.stringify to get a JSON repr
 						JSON::stringify(&param)
 							.map(|farg| <JsString as Into<String>>::into(farg).into_bytes())
+							.map_err(|_| Error::SerializationError)
 							.and_then(|farg| {
 								// Make a mock memory cell to allow other actors
 								// to read this serialized info
-								self.children
+								let mock_allocator = self
+									.children
 									.write()
-									.ok()
-									.and_then(|children| children.get(8).clone())
-									.and_then(|mock_allocator| {
+									.map_err(|_| Error::LockError)?
+									.get(8)
+									.cloned()
+									.flatten()
+									.ok_or(Error::InvalidAddressError)?;
+
+								let cell = mock_allocator
+									.instance
+									.exports
+									.get_function("alloc")
+									.map_err(|_| NoneError)
+									.context(CompileSnafu)
+									.context(ModuleSnafu)
+									.and_then(|handler| {
 										mock_allocator
-											.instance
-											.exports
-											.get_function("alloc")
-											.and_then(|handler| {
-												mock_allocator
-													.store
-													.write()
-													.and_then(|store| handler.call(store))
-											})
-									})
-									.and_then(|cell| {
-										// Get a lock on the append() function
-										// which will be used to fill up the cell with
-										// serialized data
-										self.children
+											.store
 											.write()
-											.ok()
-											.and_then(|children| children.get(cell).clone())
-											.and_then(|cell_actor| {
-												cell_actor
-													.instance
-													.exports
-													.get_function("append")
-													.and_then(|handler| {
-														cell_actor.store.write().and_then(|store| {
-															// Write each byte of serialized
-															// farg into the cell
-															farg.into_iter().for_each(|byte| {
-																handler.call(store, &[byte])
-															})
-														})
-													})
+											.map_err(|_| Error::LockError)
+											.and_then(|mut store| {
+												handler
+													.call(store.deref_mut(), &[])
+													.context(RuntimeSnafu)
+													.context(ModuleSnafu)
 											})
 									})
+									.map(|ret| match ret[0] {
+										Value::I32(v) => v,
+										_ => panic!("Invalid declaration of mock spawn()"),
+									})?;
+
+								// Get a lock on the append() function
+								// which will be used to fill up the cell with
+								// serialized data
+								let cell_actor = self
+									.children
+									.write()
+									.map_err(|_| Error::LockError)?
+									.get(cell as usize)
+									.cloned()
+									.flatten()
+									.ok_or(Error::InvalidAddressError)?;
+								let handler = cell_actor
+									.instance
+									.exports
+									.get_function("append")
+									.map_err(|_| NoneError)
+									.context(CompileSnafu)
+									.context(ModuleSnafu)?;
+								cell_actor
+									.store
+									.write()
+									.map_err(|_| Error::LockError)
+									.and_then(|mut store| {
+										// Write each byte of serialized
+										// farg into the cell
+										farg.into_iter()
+											.map(|byte| {
+												handler
+													.call(
+														store.deref_mut(),
+														&[Value::I32(byte as i32)],
+													)
+													.context(RuntimeSnafu)
+													.context(ModuleSnafu)
+													.map(|_| ())
+											})
+											.collect::<Result<_, _>>()
+									})?;
+
+								Ok(Value::I32(cell))
 							})
 					})
 			})
-			.collect::<Result<Vec<Value>, ()>>()?;
+			.collect::<Result<Vec<Value>, Error>>()?;
 
 		if let Some(to) = to {
 			self.impulse(from, to, msg_name, copy_params)
@@ -480,39 +515,42 @@ impl Rt {
 		Ok(slot)
 	}
 
-	fn impulse(
+	pub fn impulse(
 		&self,
 		from: Option<Address>,
 		to: Address,
 		msg_name: impl AsRef<str> + Display,
 		params: impl Deref<Target = [Value]>,
 	) -> Result<(), Error> {
-		msg_name.insert_str(0, "handle_");
-
 		self.mailboxes
 			.write()
-			.ok()?
-			.send_to(to, msg_name, params.to_vec())
-			.ok()?
+			.map_err(|_| Error::LockError)?
+			.send_to(to, format!("handle_{}", msg_name), params.to_vec())
 	}
 
-	fn impulse_all(
+	pub fn impulse_all(
 		&self,
 		from: Option<Address>,
 		msg_name: impl AsRef<str> + Display,
 		params: impl Deref<Target = [Value]>,
 	) {
-		for i in 0..self.children.len() {
-			if Err(e) = impulse(from, i, msg_name, params) {
+		let n_children = if let Ok(lock) = self.children.read() {
+			lock.len()
+		} else {
+			return;
+		};
+
+		for i in 0..n_children {
+			if let Err(e) = self.impulse(from, i as u32, &msg_name, &params[..]) {
 				log(&format!(
 					"impulse handler error for message {} to process {}: {:?}",
-					handler_name, i, e
+					msg_name, i, e
 				));
 			}
 		}
 	}
 
-	fn poll(&self) -> Result<(), Error> {
+	pub fn poll(&self) -> Result<(), Error> {
 		// Handle all "real" (i.e., generated by actors within our system) messages
 		// Continuously handle until no more real messages exist
 		loop {
