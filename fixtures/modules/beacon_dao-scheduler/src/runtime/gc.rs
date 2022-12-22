@@ -475,6 +475,7 @@ impl Rt {
 					"address" => address_fn,
 					"print" => Function::new_typed_with_env(&mut store, &env, Self::log_safe),
 					"append_element" => Function::new_typed_with_env(&mut store, &env, Self::append_element_safe),
+					"eval_js" => Function::new_typed_with_env(&mut store, &env, Self::eval_js_safe),
 				},
 			}
 		} else {
