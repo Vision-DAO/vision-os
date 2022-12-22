@@ -3,6 +3,7 @@ pub mod runtime;
 
 use runtime::gc::Rt;
 use std::{default::Default, panic, sync::Arc};
+use vision_utils::types::DISPLAY_MANAGER_ADDR;
 use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
 
 /// Global instance of the runtime that external modules can use to interact
@@ -84,6 +85,9 @@ pub fn start() {
 		true,
 	)
 	.expect("Failed to start mock allocator.");
+
+	RT.impulse(None, DISPLAY_MANAGER_ADDR, "display_login", &[][..])
+		.expect("Failed to login");
 }
 
 /// Sends a message to the global runtime instance, pretending that the message was sent from the from address provided.

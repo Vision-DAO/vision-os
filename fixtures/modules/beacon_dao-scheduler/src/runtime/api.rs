@@ -1,6 +1,7 @@
 use super::gc::Rt;
 
 use crate::common::Address;
+use js_sys::eval;
 use wasmer::{FromToNativeWasmType, FunctionEnvMut, Memory32, WasmPtr};
 
 #[cfg(feature = "wasm")]
@@ -70,6 +71,22 @@ impl Rt {
 
 	pub fn append_element_safe(env: FunctionEnvMut<(Address, Rt)>, kind: i32, src: i32) -> u8 {
 		match Self::do_append_element_safe(env, kind, src) {
+			Some(_) => 0,
+			None => 1,
+		}
+	}
+
+	/* Implementation of the eval API */
+	pub fn do_eval_js_safe(env: FunctionEnvMut<(Address, Rt)>, src: i32) -> Option<()> {
+		// Evaluate the JS code at *src
+		let src = Self::read_env_str(&env, src)?;
+		eval(src.as_str()).ok()?;
+
+		Some(())
+	}
+
+	pub fn eval_js_safe(env: FunctionEnvMut<(Address, Rt)>, src: i32) -> u8 {
+		match Self::do_eval_js_safe(env, src) {
 			Some(_) => 0,
 			None => 1,
 		}

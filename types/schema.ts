@@ -6,8 +6,9 @@ import { CID } from "multiformats/cid";
 export interface Payload {
 	start(): void;
 
-	// Some payloads have a poll() function (scheduler)
+	// Scheduler methods
 	poll(): void | undefined;
+	impulse(): void | undefined;
 }
 
 /**
