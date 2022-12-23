@@ -1,6 +1,7 @@
 pub mod common;
 pub mod runtime;
 
+use js_sys::Array;
 use runtime::gc::Rt;
 use std::{default::Default, panic, sync::Arc};
 use vision_utils::types::DISPLAY_MANAGER_ADDR;
@@ -92,8 +93,15 @@ pub fn start() {
 
 /// Sends a message to the global runtime instance, pretending that the message was sent from the from address provided.
 #[wasm_bindgen]
-pub fn impulse(from: u32, to: Option<u32>, msg_name: &str, params: Vec<JsValue>) {
-	RT.impulse_js(Some(from), to, msg_name, params).unwrap();
+pub fn impulse(from: u32, to: u32, msg_name: String, params: Array) {
+	#[wasm_bindgen]
+	extern "C" {
+		#[wasm_bindgen(js_namespace = console)]
+		pub fn log(s: &str);
+	}
+
+	RT.impulse_js(Some(from), Some(to), msg_name.as_str(), params)
+		.unwrap();
 }
 
 /// Drives the runtime to completion.

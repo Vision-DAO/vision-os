@@ -8,7 +8,12 @@ export interface Payload {
 
 	// Scheduler methods
 	poll(): void | undefined;
-	impulse(): void | undefined;
+	impulse(
+		from: number,
+		to: number,
+		msgName: string,
+		rest: unknown
+	): void | undefined;
 }
 
 /**

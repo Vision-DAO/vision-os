@@ -74,13 +74,9 @@ fn do_eval_js(has_permission: bool, from: Address, src: String) -> Result<u8, ()
 
 	let src = std::ffi::CString::new(format!(
 		"{{
-												let gimpulse = impulse;
-
-												function impulse(to, msgName, ...args) {{
-													gimpulse({from}, to, msgName, args);
+												let impulse = (to, msgName, ...args) => {{
+													window.impulse({from}, to, msgName, args);
 												}}
-
-												gimpulse = undefined;
 
 												{src}
 											  }}"

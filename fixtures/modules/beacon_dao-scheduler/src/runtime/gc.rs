@@ -11,7 +11,7 @@ use std::{
 };
 
 use super::api::log;
-use js_sys::{JsString, JSON};
+use js_sys::{Array, JsString, JSON};
 use snafu::{NoneError, ResultExt};
 use wasm_bindgen::JsValue;
 use wasmer::{
@@ -301,10 +301,10 @@ impl Rt {
 		from: Option<Address>,
 		to: Option<Address>,
 		msg_name: &str,
-		params: Vec<JsValue>,
+		params: Array,
 	) -> Result<(), Error> {
 		let copy_params = params
-			.into_iter()
+			.iter()
 			.map(|param| {
 				// Try getting a copy type from the JS argument
 				// Otherwise, serialize it as JSON, and pass it in as an
@@ -409,8 +409,10 @@ impl Rt {
 			})
 			.collect::<Result<Vec<Value>, Error>>()?;
 
-		if let Some(to) = to {
-			self.impulse(from, to, msg_name, copy_params)
+		if let Some(to_addr) = to {
+			let res = self.impulse(from, to_addr, msg_name, copy_params);
+
+			res
 		} else {
 			self.impulse_all(from, msg_name, copy_params);
 			Ok(())
@@ -523,10 +525,13 @@ impl Rt {
 		msg_name: impl AsRef<str> + Display,
 		params: impl Deref<Target = [Value]>,
 	) -> Result<(), Error> {
+		let mut with_from_params = params.to_vec();
+		with_from_params.insert(0, Value::I32(from.unwrap_or(0) as i32));
+
 		self.mailboxes
 			.write()
 			.map_err(|_| Error::LockError)?
-			.send_to(to, format!("handle_{}", msg_name), params.to_vec())
+			.send_to(to, format!("handle_{}", msg_name), with_from_params)
 	}
 
 	pub fn impulse_all(
