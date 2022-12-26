@@ -78,6 +78,8 @@ fn do_eval_js(has_permission: bool, from: Address, src: String) -> Result<u8, ()
 													window.impulse({from}, to, msgName, args);
 												}}
 
+												let address = () => {from};
+
 												{src}
 											  }}"
 	))

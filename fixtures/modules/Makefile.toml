@@ -14,16 +14,19 @@ workspace = false
 dependencies = ["build_all_flow", "build_scheduler"]
 
 [tasks.build_scheduler]
+workspace = false
 script = '''
 cd beacon_dao-scheduler && wasm-pack build --target web --features "wasm module" --release
 '''
 
 [tasks.run_scheduler]
+workspace = false
 script = '''
 cd beacon_dao-scheduler && cargo run --features cli
 '''
 
 [tasks.run_test_runner]
+workspace = false
 script = '''
 cd beacon_dao-test && cargo run --features cli
 '''

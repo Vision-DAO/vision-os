@@ -13,6 +13,9 @@ crate-type = ["cdylib", "rlib"]
 path = "src/main.rs"
 name = "vision"
 
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
 [features]
 default = []
 module = ["wasm"]
