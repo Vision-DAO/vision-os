@@ -3,50 +3,51 @@ pragma solidity ^0.8.0;
 
 import "./Idea.sol";
 import "./Proposal.sol";
+import "./User.sol";
 
 contract RecoveryGroup is Idea {
     /* The parent of the user. */
-    address internal parentUser;
+    User internal parentUser;
 
     /* The current proposal, if any. */
     RecoveryProp public currProp;
 
     constructor() Idea("", "IJK", 0, "") {
-        parentUser = msg.sender;
+        parentUser = User(msg.sender);
     }
 
-    function addTrustedContact(address memory contact) external {
-        require(msg.sender == parentUser, "Trusted contacts can only be added by owner");
+    function addTrustedContact(address contact) external {
+        require(msg.sender == parentUser.ident(), "Trusted contacts can only be added by owner");
 
-        mint(contact, 1 * 10**19);
+        _mint(contact, 1 * 10**19);
     }
 
-    function removeTrustedContact(address memory contact) external {
-        require(msg.sender == parentUser, "Trusted contacts can only be removed by owner");
+    function removeTrustedContact(address contact) external {
+        require(msg.sender == parentUser.ident(), "Trusted contacts can only be removed by owner");
 
-        burnFrom(contact, 1 * 10**19);
+        _burn(contact, 1 * 10**19);
     }
 
     function requestRecovery(address newIdent) external {
-        require(currProp == address(0), "A current recovery session may not be overwritten");
+        require(address(currProp) == address(0), "A current recovery session may not be overwritten");
 
         // 24 hour duration
-        currProp = RecoveryProp(newIdent, 24 * 60 * 60, msg.sender);
+        currProp = new RecoveryProp(newIdent, 24 * 60 * 60, this);
     }
 
     function recover() external returns (address) {
-        require(currProp == address(0), "No recovery proposal is active");
-        require(!currProp.isActive(), "The recovery proposal is still pending");
+        require(address(currProp) == address(0), "No recovery proposal is active");
+        require(!currProp.active(), "The recovery proposal is still pending");
 
         // Require a >50% majority to pass any proposal
         if (currProp.nAffirmative() * 100 / totalSupply() <= 50) {
-            emit ProposalRejected(proposal);
+            emit ProposalRejected(currProp);
 
             return address(0);
         }
 
-        address newIdent = currProp.newIdent;
-        currProp = address(0);
+        address newIdent = currProp.newIdent();
+        currProp = RecoveryProp(address(0));
         return newIdent;
     }
 }

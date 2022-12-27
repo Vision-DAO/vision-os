@@ -33,9 +33,33 @@ declare module "hardhat/types/runtime" {
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.Idea__factory>;
     getContractFactory(
+      name: "MetaProp",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.MetaProp__factory>;
+    getContractFactory(
+      name: "IHasMetadata",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.IHasMetadata__factory>;
+    getContractFactory(
       name: "Proposal",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.Proposal__factory>;
+    getContractFactory(
+      name: "Proposal",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.Proposal__factory>;
+    getContractFactory(
+      name: "RecoveryGroup",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.RecoveryGroup__factory>;
+    getContractFactory(
+      name: "RecoveryProp",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.RecoveryProp__factory>;
+    getContractFactory(
+      name: "User",
+      signerOrOptions?: ethers.Signer | FactoryOptions
+    ): Promise<Contracts.User__factory>;
 
     getContractAt(
       name: "Ownable",
@@ -63,10 +87,40 @@ declare module "hardhat/types/runtime" {
       signer?: ethers.Signer
     ): Promise<Contracts.Idea>;
     getContractAt(
+      name: "MetaProp",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.MetaProp>;
+    getContractAt(
+      name: "IHasMetadata",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.IHasMetadata>;
+    getContractAt(
       name: "Proposal",
       address: string,
       signer?: ethers.Signer
     ): Promise<Contracts.Proposal>;
+    getContractAt(
+      name: "Proposal",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.Proposal>;
+    getContractAt(
+      name: "RecoveryGroup",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.RecoveryGroup>;
+    getContractAt(
+      name: "RecoveryProp",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.RecoveryProp>;
+    getContractAt(
+      name: "User",
+      address: string,
+      signer?: ethers.Signer
+    ): Promise<Contracts.User>;
 
     // default types
     getContractFactory(

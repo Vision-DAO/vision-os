@@ -19,10 +19,10 @@ contract Idea is ERC20, IHasMetadata {
 
 	/* Indicates that a proposal was attempted to be finalized, but failed to
 	 * garner the necessary >50% majority. */
-	event ProposalRejected(MetaProp proposal);
+	event ProposalRejected(Proposal proposal);
 
 	/* Indicates that a proposal was executed. */
-	event ProposalAccepted(MetaProp proposal, string oldPayload, string newPayload);
+	event ProposalAccepted(Proposal proposal, string oldPayload, string newPayload);
 
 	/**
 	 * Creates a new Idea DAO, with a corresponding ERC-20 token of name _name,
@@ -59,7 +59,7 @@ contract Idea is ERC20, IHasMetadata {
 		uint256 n = commits.nCommitments;
 
 		for (uint256 i = 0; i < n;) {
-			MetaProp committee = commits.committed[i];
+			Proposal committee = commits.committed[i];
 			Commitment storage commit = commits.commitments[committee];
 
 			uint256 balance = balanceOf(from);
@@ -90,7 +90,7 @@ contract Idea is ERC20, IHasMetadata {
 	 * to downsize the user's vote at a later point in time if necessary.
 	 */
 	function commitVotes(address voter, Commitment memory vote) public {
-		commitVotes(Proposal(msg.sender), voter, vote);
+		commitVotes(MetaProp(msg.sender), voter, vote);
 	}
 
 	/**
@@ -112,7 +112,7 @@ contract Idea is ERC20, IHasMetadata {
 	/**
 	 * Gets the existing commitment of the voter to the proposal msg.sender.
 	 */
-	function commitment(MetaProp prop, address voter) public view returns (Commitment memory) {
+	function commitment(Proposal prop, address voter) public view returns (Commitment memory) {
 		return commitments[voter].commitments[prop];
 	}
 

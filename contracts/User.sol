@@ -2,6 +2,8 @@
 pragma solidity ^0.8.0;
 
 import "./Idea.sol";
+import "./RecoveryGroup.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 contract User is Idea {
     /* Token whose owners are responsible for allocation of governance token. */
@@ -16,37 +18,36 @@ contract User is Idea {
         _;
     }
 
-    constructor(string memory _keyPair, string memory _ipfsAddr) Idea(msg.sender, "XYZ", 1 * 10**19, _ipfsAddr) {
-        recoveryGroup = RecoveryGroup();
+    constructor(string memory _keyPair, string memory _ipfsAddr) Idea(Strings.toHexString(uint160(msg.sender), 20), "XYZ", 1 * 10**19, _ipfsAddr) {
+        recoveryGroup = new RecoveryGroup();
         keyPair = _keyPair;
         ident = msg.sender;
     }
 
-    function addTrustedContact(address memory contact) external isOwner {
+    function addTrustedContact(address contact) external isOwner {
         recoveryGroup.addTrustedContact(contact);
     }
 
-    function removeTrustedContact(address memory contact) external isOwner {
+    function removeTrustedContact(address contact) external isOwner {
         recoveryGroup.removeTrustedContact(contact);
     }
 
     function recover() external {
-        require(recoveryGroup.currProp != address(0), "There is no active recovery proposal");
-        address newIdent = recover();
+        require(address(recoveryGroup.currProp()) != address(0), "There is no active recovery proposal");
+        address newIdent = recoveryGroup.recover();
         require(newIdent != address(0), "Recovery proposal did not pass");
 
-        burnFrom(ident, 1 * 10**19);
+        _burn(ident, 1 * 10**19);
         ident = newIdent;
-        mint(ident, 1 * 10**19);
+        _mint(ident, 1 * 10**19);
     }
 
-    function setKeyPair(string newKeyPair) external isOwner {
+    function setKeyPair(string calldata newKeyPair) external isOwner {
         keyPair = newKeyPair;
     }
 
     function transfer(address token, address recipient, uint256 amount) external isOwner {
-        ERC20 token = token;
-        require(token.transfer(recipient, amount), "Transfer failed");
+        require(ERC20(token).transfer(recipient, amount), "Transfer failed");
     }
 
     function setMetadata(string memory _ipfsAddr) external isOwner {
