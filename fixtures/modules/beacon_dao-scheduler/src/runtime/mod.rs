@@ -3,14 +3,10 @@ pub mod api;
 /// Implements basic web API's for actors within the VVM.
 pub mod gc;
 
-use crate::common::Address;
 use snafu::Snafu;
-use wasmer::{ExportError, InstantiationError, RuntimeError, Value};
+use wasmer::{ExportError, InstantiationError, RuntimeError};
 
-use std::{
-	fmt::{Debug, Display},
-	ops::Deref,
-};
+use std::fmt::Debug;
 
 /// Any error encountered by the VVM runtime.
 #[derive(Debug, Snafu)]

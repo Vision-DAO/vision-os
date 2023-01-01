@@ -5,7 +5,7 @@ use js_sys::Array;
 use runtime::gc::Rt;
 use std::{default::Default, panic, sync::Arc};
 use vision_utils::types::DISPLAY_MANAGER_ADDR;
-use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
+use wasm_bindgen::prelude::wasm_bindgen;
 
 // Global instance of the runtime that external modules can use to interact
 // with.

@@ -13,7 +13,6 @@ use std::{
 use super::api::log;
 use js_sys::{Array, JsString, JSON};
 use snafu::{NoneError, ResultExt};
-use wasm_bindgen::JsValue;
 use wasmer::{
 	Extern, FromToNativeWasmType, Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance,
 	Memory32, MemoryView, Module, Store, Type, Value, WasmPtr,
@@ -22,12 +21,12 @@ use wasmer::{
 type Call = Vec<Value>;
 type Mailbox = HashMap<String, Vec<Call>>;
 
-pub(crate) struct USPS {
+pub(crate) struct Usps {
 	boxes: Vec<Mailbox>,
 	n_queued: usize,
 }
 
-impl USPS {
+impl Usps {
 	fn new(n_queued: usize) -> Self {
 		Self {
 			boxes: (0..=n_queued).map(|_| HashMap::new()).collect(),
@@ -74,7 +73,7 @@ pub struct Rt {
 	pub(crate) free_slots: Arc<RwLock<Vec<Address>>>,
 
 	// Queued messages for sending to handlers per actor
-	pub(crate) mailboxes: Arc<RwLock<USPS>>,
+	pub(crate) mailboxes: Arc<RwLock<Usps>>,
 }
 
 /// A handle to the runtime exposed to runtime API methods allowing
@@ -113,7 +112,7 @@ impl Default for Rt {
 		Self {
 			children: Arc::new(RwLock::new(vec![None])),
 			free_slots: Arc::new(RwLock::new(Vec::new())),
-			mailboxes: Arc::new(RwLock::new(USPS::new(0))),
+			mailboxes: Arc::new(RwLock::new(Usps::new(0))),
 		}
 	}
 }
@@ -172,8 +171,7 @@ impl Rt {
 			let children = self.children.read().ok()?;
 			children
 				.get(addr as usize)
-				.map(Option::as_ref)
-				.flatten()?
+				.and_then(Option::as_ref)?
 				.clone()
 		};
 		let abis = recv.abi.read().ok()?;
@@ -186,11 +184,10 @@ impl Rt {
 				let arg_size = type_size(arg);
 				let parse_arg = |arg_val: Vec<i32>, view: &MemoryView| {
 					let bytes = arg_val
-						.clone()
 						.into_iter()
 						.map(|cell: i32| {
 							<WasmPtr<u8, Memory32> as FromToNativeWasmType>::from_native(cell)
-								.read(&view)
+								.read(view)
 						})
 						.collect::<Result<Vec<u8>, _>>()
 						.ok()?;
@@ -377,18 +374,13 @@ impl Rt {
 									.and_then(|mut store| {
 										// Write each byte of serialized
 										// farg into the cell
-										farg.into_iter()
-											.map(|byte| {
-												handler
-													.call(
-														store.deref_mut(),
-														&[Value::I32(byte as i32)],
-													)
-													.context(RuntimeSnafu)
-													.context(ModuleSnafu)
-													.map(|_| ())
-											})
-											.collect::<Result<_, _>>()
+										farg.into_iter().try_for_each(|byte| {
+											handler
+												.call(store.deref_mut(), &[Value::I32(byte as i32)])
+												.context(RuntimeSnafu)
+												.context(ModuleSnafu)
+												.map(|_| ())
+										})
 									})?;
 
 								Ok(Value::I32(cell))
@@ -398,9 +390,7 @@ impl Rt {
 			.collect::<Result<Vec<Value>, Error>>()?;
 
 		if let Some(to_addr) = to {
-			let res = self.impulse(from, to_addr, msg_name, copy_params);
-
-			res
+			self.impulse(from, to_addr, msg_name, copy_params)
 		} else {
 			self.impulse_all(from, msg_name, copy_params);
 			Ok(())
