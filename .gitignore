@@ -210,3 +210,7 @@ flycheck_*.el
 
 # network security
 /network-security.data
+
+# Compiled TypeScript Bindings
+types/contracts/
+types/factories/
