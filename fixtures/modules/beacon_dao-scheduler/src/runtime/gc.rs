@@ -15,8 +15,8 @@ use js_sys::{Array, JsString, JSON};
 use snafu::{NoneError, ResultExt};
 use wasm_bindgen::JsValue;
 use wasmer::{
-	FromToNativeWasmType, Function, FunctionEnv, FunctionEnvMut, Instance, Memory32, MemoryView,
-	Module, Store, Type, Value, WasmPtr,
+	Extern, FromToNativeWasmType, Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance,
+	Memory32, MemoryView, Module, Store, Type, Value, WasmPtr,
 };
 
 type Call = Vec<Value>;
@@ -88,6 +88,7 @@ pub(crate) struct Actor {
 	pub(crate) instance: Instance,
 	pub(crate) store: Arc<RwLock<Store>>,
 	pub(crate) src: Vec<u8>,
+	pub(crate) abi: HashMap<String, FunctionType>,
 }
 
 // This is fine because modules, which are usually !Send + !Sync, are wrapped in a lock
@@ -503,9 +504,24 @@ impl Rt {
 			}
 		}
 
+		// Find the parameter and return types of all export of the module
+		let abi = instance
+			.exports
+			.iter()
+			.filter_map(|(name, export)| match export {
+				Extern::Function(f) => Some((name.clone(), f.ty(&store))),
+				_ => None,
+			})
+			.fold(HashMap::new(), |mut accum, (name, ty)| {
+				accum.insert(name, ty);
+
+				accum
+			});
+
 		// Initialize an actor for the module, and call its initializer
 		let actor = Actor {
 			instance,
+			abi,
 			module: Arc::new(RwLock::new(module)),
 			src: src.as_ref().to_vec(),
 			store: Arc::new(RwLock::new(store)),
