@@ -7,8 +7,8 @@ use std::{default::Default, panic, sync::Arc};
 use vision_utils::types::DISPLAY_MANAGER_ADDR;
 use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
 
-/// Global instance of the runtime that external modules can use to interact
-/// with.
+// Global instance of the runtime that external modules can use to interact
+// with.
 lazy_static::lazy_static! {
 	static ref RT: Arc<Rt> = Arc::new(Rt::default());
 }

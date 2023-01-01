@@ -88,7 +88,7 @@ pub(crate) struct Actor {
 	pub(crate) instance: Instance,
 	pub(crate) store: Arc<RwLock<Store>>,
 	pub(crate) src: Vec<u8>,
-	pub(crate) abi: HashMap<String, FunctionType>,
+	pub(crate) abi: Arc<RwLock<HashMap<String, FunctionType>>>,
 }
 
 // This is fine because modules, which are usually !Send + !Sync, are wrapped in a lock
@@ -176,67 +176,54 @@ impl Rt {
 				.flatten()?
 				.clone()
 		};
-		let mut recv_store = recv.store.write().ok()?;
-
-		let handler = recv.instance.exports.get_function(msg_name.as_str());
-
-		let handler = handler.ok()?;
+		let abis = recv.abi.read().ok()?;
+		let abi = abis.get(msg_name.as_str())?;
 
 		// Deref args expected by the handler from the message buffer
-		let (args, _) = handler.ty(recv_store.deref_mut()).params()[1..]
-			.iter()
-			.fold(
-				([Value::I32(from as i32)].to_vec(), 0),
-				|(mut accum, pos), arg| {
-					let arg_size = type_size(arg);
-					let parse_arg = |arg_val: Vec<i32>, view: &MemoryView| {
-						let bytes = arg_val
-							.clone()
-							.into_iter()
-							.map(|cell: i32| {
-								<WasmPtr<u8, Memory32> as FromToNativeWasmType>::from_native(cell)
-									.read(&view)
-							})
-							.collect::<Result<Vec<u8>, _>>()
-							.ok()?;
+		let (args, _) = abi.params()[1..].iter().fold(
+			([Value::I32(from as i32)].to_vec(), 0),
+			|(mut accum, pos), arg| {
+				let arg_size = type_size(arg);
+				let parse_arg = |arg_val: Vec<i32>, view: &MemoryView| {
+					let bytes = arg_val
+						.clone()
+						.into_iter()
+						.map(|cell: i32| {
+							<WasmPtr<u8, Memory32> as FromToNativeWasmType>::from_native(cell)
+								.read(&view)
+						})
+						.collect::<Result<Vec<u8>, _>>()
+						.ok()?;
 
-						match arg {
-							Type::I32 => {
-								Some(Value::I32(i32::from_le_bytes(bytes.try_into().ok()?)))
-							}
-							Type::I64 => {
-								Some(Value::I64(i64::from_le_bytes(bytes.try_into().ok()?)))
-							}
-							Type::F32 => {
-								Some(Value::F32(f32::from_le_bytes(bytes.try_into().ok()?)))
-							}
-							Type::F64 => {
-								Some(Value::F64(f64::from_le_bytes(bytes.try_into().ok()?)))
-							}
-							Type::V128 => {
-								Some(Value::V128(u128::from_le_bytes(bytes.try_into().ok()?)))
-							}
-
-							// The only way for actors to communicate is via
-							// message-passing. No cross-module dereferencing of pointers
-							Type::ExternRef | Type::FuncRef => None,
+					match arg {
+						Type::I32 => Some(Value::I32(i32::from_le_bytes(bytes.try_into().ok()?))),
+						Type::I64 => Some(Value::I64(i64::from_le_bytes(bytes.try_into().ok()?))),
+						Type::F32 => Some(Value::F32(f32::from_le_bytes(bytes.try_into().ok()?))),
+						Type::F64 => Some(Value::F64(f64::from_le_bytes(bytes.try_into().ok()?))),
+						Type::V128 => {
+							Some(Value::V128(u128::from_le_bytes(bytes.try_into().ok()?)))
 						}
-					};
 
-					if let Some(arg_val) = parse_arg(
-						(0..(arg_size / 8))
-							.map(|i| msg_buf + (pos + i as i32))
-							.collect::<Vec<i32>>(),
-						&memory,
-					) {
-						accum.push(arg_val);
-
-						(accum, pos + (arg_size / 8) as i32)
-					} else {
-						(accum, pos)
+						// The only way for actors to communicate is via
+						// message-passing. No cross-module dereferencing of pointers
+						Type::ExternRef | Type::FuncRef => None,
 					}
-				},
-			);
+				};
+
+				if let Some(arg_val) = parse_arg(
+					(0..(arg_size / 8))
+						.map(|i| msg_buf + (pos + i as i32))
+						.collect::<Vec<i32>>(),
+					&memory,
+				) {
+					accum.push(arg_val);
+
+					(accum, pos + (arg_size / 8) as i32)
+				} else {
+					(accum, pos)
+				}
+			},
+		);
 
 		env.data()
 			.1
@@ -521,7 +508,7 @@ impl Rt {
 		// Initialize an actor for the module, and call its initializer
 		let actor = Actor {
 			instance,
-			abi,
+			abi: Arc::new(RwLock::new(abi)),
 			module: Arc::new(RwLock::new(module)),
 			src: src.as_ref().to_vec(),
 			store: Arc::new(RwLock::new(store)),
