@@ -1,6 +1,6 @@
 use beacon_dao_permissions::{has_permission, register_permission};
 use vision_derive::with_bindings;
-use vision_utils::types::{Address, Callback, DISPLAY_MANAGER_ADDR, PERM_ADDR};
+use vision_utils::types::{Address, Callback, DISPLAY_MANAGER_ADDR, FETCH_ADDR, PERM_ADDR};
 
 const PERM: &'static str = "control your computer";
 const DESCRIPTION: &'static str =
@@ -24,7 +24,7 @@ fn do_create_element(
 	kind: String,
 	src: String,
 ) -> Result<u8, ()> {
-	if !has_permission && from != DISPLAY_MANAGER_ADDR {
+	if !has_permission && from != DISPLAY_MANAGER_ADDR && from != FETCH_ADDR {
 		return Err(());
 	}
 
@@ -64,7 +64,7 @@ pub extern "C" fn handle_create_element(
 
 /// Returns Ok(()) if the JS was evaluated successfully.
 fn do_eval_js(has_permission: bool, from: Address, src: String) -> Result<u8, ()> {
-	if !has_permission && from != DISPLAY_MANAGER_ADDR {
+	if !has_permission && from != DISPLAY_MANAGER_ADDR && from != FETCH_ADDR {
 		return Err(());
 	}
 

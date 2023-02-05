@@ -87,6 +87,14 @@ pub fn start() {
 	)
 	.expect("Failed to start mock allocator.");
 
+	// HTTP client module
+	RT.spawn(
+		None,
+		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_fetch.wasm",),
+		false,
+	)
+	.expect("Failed to start HTTP client.");
+
 	RT.impulse(None, DISPLAY_MANAGER_ADDR, "display_login", &[][..])
 		.expect("Failed to login");
 }

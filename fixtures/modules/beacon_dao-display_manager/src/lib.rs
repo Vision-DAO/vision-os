@@ -29,17 +29,5 @@ pub extern "C" fn handle_display_login(from: Address) {
 	);
 }
 
-#[no_mangle]
-pub extern "C" fn handle_bump(from: Address) {
-	if from != address() {
-		return;
-	}
-
-	let new_count = COUNT.fetch_add(2, Ordering::SeqCst) + 2;
-
-	eval_js(
-		DOM_ADDR,
-		format!("document.getElementById('countLabel').innerText = {new_count};"),
-		Callback::new(|_| {}),
-	);
-}
+/// Loads the config profile at the specified Ethereum address.
+pub extern "C" fn handle_login_as(from: Address, username: String, callback: Callback<usize>) {}
