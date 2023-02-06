@@ -16,7 +16,7 @@ lazy_static::lazy_static! {
 
 #[no_mangle]
 pub extern "C" fn handle_display_login(from: Address) {
-	create_element(
+	/*create_element(
 		DOM_ADDR,
 		String::from("div"),
 		include_str!("./index.html").to_owned(),
@@ -27,6 +27,17 @@ pub extern "C" fn handle_display_login(from: Address) {
 				Callback::new(|_| {}),
 			);
 		}),
+	);*/
+
+	fetch(
+		FETCH_ADDR,
+		String::new("https://google.com"),
+		OptionsBuilder {
+			method: None,
+			headers: None,
+			body: None,
+		},
+		Callback::new(|_| {}),
 	);
 }
 

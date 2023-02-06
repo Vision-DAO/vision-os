@@ -1,3 +1,4 @@
+pub use beacon_dao_permissions;
 use beacon_dao_permissions::{has_permission, register_permission};
 use vision_derive::with_bindings;
 use vision_utils::types::{Address, Callback, DISPLAY_MANAGER_ADDR, FETCH_ADDR, PERM_ADDR};

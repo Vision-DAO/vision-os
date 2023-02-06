@@ -90,8 +90,8 @@ pub fn start() {
 	// HTTP client module
 	RT.spawn(
 		None,
-		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_fetch.wasm",),
-		false,
+		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_fetch.wasm"),
+		true,
 	)
 	.expect("Failed to start HTTP client.");
 

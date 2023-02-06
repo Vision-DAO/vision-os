@@ -1,9 +1,10 @@
 use beacon_dao_dom::eval_js;
-use beacon_dao_mock_alloc::read;
-use beacon_dao_permissions::{has_permission, register_permission};
+use beacon_dao_permissions::{beacon_dao_allocator::read, has_permission, register_permission};
 use js_sys::JSON;
-use serde::Serialize;
-use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
+use serde_wasm_bindgen;
+use std::{collections::HashMap, sync::RwLock};
+use vision_derive::with_bindings;
 use vision_utils::types::{
 	Address, Callback, DISPLAY_MANAGER_ADDR, DOM_ADDR, EXIT_FAILURE, EXIT_SUCCESS,
 	MOCK_ALLOCATOR_ADDR, PERM_ADDR,
@@ -13,9 +14,10 @@ const PERM: &'static str = "make_http_request";
 const DESCRIPTION: &'static str = "Allows the app to make a request to the web.";
 
 /// Callbacks that should be run after the fetch() promise is returned.
-pub static TASKS: RwLock<Vec<Option<Callback<Result<JsValue, ()>>>>> = RwLock::new(Vec::new());
+pub static TASKS: RwLock<Vec<Option<Callback<Result<Response, ()>>>>> = RwLock::new(Vec::new());
 
 /// HTTP methods available.
+#[derive(Serialize, Deserialize)]
 pub enum Method {
 	POST,
 	GET,
@@ -29,22 +31,29 @@ pub struct OptionsBuilder<T: Serialize> {
 	body: Option<T>,
 }
 
-impl<T: Serialize> From<OptionBuilder<T>> for Options<T> {
-	fn from(mut opts: OptionBuilder<T>) -> Self {
+impl<T: Serialize> From<OptionsBuilder<T>> for Options {
+	fn from(mut opts: OptionsBuilder<T>) -> Self {
 		Options {
 			method: opts.method.take().unwrap_or(Method::GET),
 			headers: opts.headers.take().unwrap_or(HashMap::new()),
-			body: opts.body,
+			body: serde_json::to_string(&opts.body).ok(),
 		}
 	}
 }
 
 /// Settings for an HTTP request.
-#[derive(Serialize)]
-pub struct Options<T: Serialize> {
+#[derive(Serialize, Deserialize)]
+pub struct Options {
 	method: Method,
 	headers: HashMap<String, String>,
-	body: Option<T>,
+	body: Option<String>,
+}
+
+/// An HTTP response.
+#[derive(Serialize, Deserialize)]
+pub struct Response {
+	body: Option<Vec<u8>>,
+	status: usize,
 }
 
 #[cfg(feature = "module")]
@@ -65,7 +74,7 @@ pub extern "C" fn handle_fetch(
 	from: Address,
 	resource: String,
 	opts: Options,
-	callback: Callback<Result<JsValue, ()>>,
+	callback: Callback<Result<Response, ()>>,
 ) {
 	// Check that the user can make HTTP requests
 	has_permission(
@@ -82,24 +91,56 @@ pub extern "C" fn handle_fetch(
 
 			// Save the callback to be run after the fetch() call is done
 			let slot = {
-				let slots = TASKS.write();
-				let slot = TASKS.len();
+				let mut slots = if let Ok(lock) = TASKS.write() {
+					lock
+				} else {
+					callback.call(Err(()));
+
+					return;
+				};
+
+				let slot = slots.len();
 				slots.push(Some(callback));
 
 				slot
+			};
+
+			let opts_ser = if let Ok(ser) = serde_json::to_string(&opts) {
+				ser
+			} else {
+				let mut slots = if let Ok(slots) = TASKS.write() {
+					slots
+				} else {
+					return;
+				};
+
+				let cb = if let Some(cb) = slots.get_mut(slot).and_then(|task| task.take()) {
+					cb
+				} else {
+					return;
+				};
+
+				cb.call(Err(()));
+
+				return;
 			};
 
 			eval_js(
 				DOM_ADDR,
 				format!(
 					"fetch({}, {}).then((resp) => impulse(address(), 'fetch_resp', [{}, resp]))",
-					resource,
-					serde_json::to_string(opts),
-					slot,
+					resource, opts_ser, slot,
 				),
 				Callback::new(move |stat| {
 					if stat == 1 {
-						let cb = if let Some(cb) = TASKS.write().get_mut(slot).take() {
+						let mut slots = if let Ok(slots) = TASKS.write() {
+							slots
+						} else {
+							return;
+						};
+
+						let cb = if let Some(cb) = slots.get_mut(slot).and_then(|task| task.take())
+						{
 							cb
 						} else {
 							return;
@@ -122,9 +163,13 @@ pub extern "C" fn handle_fetch_resp(
 	from: Address,
 	cb_id: u32,
 	json_cell: Address,
-	callback: Callback<usize>,
+	callback: Callback<u32>,
 ) {
-	let task = if let Some(task) = TASKS.write().get_mut(cb_id).take() {
+	let task = if let Some(task) = TASKS
+		.write()
+		.ok()
+		.and_then(|mut tasks| tasks.get_mut(cb_id as usize).and_then(|task| task.take()))
+	{
 		task
 	} else {
 		callback.call(EXIT_FAILURE);
@@ -137,27 +182,29 @@ pub extern "C" fn handle_fetch_resp(
 	let unmatched = Vec::new();
 
 	fn pop_c(
-		buf: String,
-		unmatched: Vec<()>,
-		pos: usize,
+		mut buf: String,
+		mut unmatched: Vec<()>,
+		pos: u32,
 		cell: Address,
-		task: Callback<Result<JsValue, ()>>,
+		task: Callback<Result<Response, ()>>,
 	) {
 		read(
 			cell,
 			pos,
-			Callback::new(move |c| {
-				if c == "{" {
+			Callback::new(move |c: u8| {
+				let c = c as char;
+
+				if c == '{' {
 					unmatched.push(());
-				} else if c == "}" {
+				} else if c == '}' {
 					unmatched.pop();
 				}
 
-				buf += c;
+				buf.push(c);
 
 				// The JS object finished transmitting
 				if unmatched.len() == 0 {
-					task.call(JSON::parse(buf.as_str()).map_err(|_| ()));
+					task.call(serde_json::from_str(buf.as_str()).map_err(|_| ()));
 
 					return;
 				}
