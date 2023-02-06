@@ -98,7 +98,7 @@ pub extern "C" fn handle_fetch(
 					slot,
 				),
 				Callback::new(move |stat| {
-					if stat == 1 {
+					if stat == EXIT_FAILURE {
 						let cb = if let Some(cb) = TASKS.write().get_mut(slot).take() {
 							cb
 						} else {
