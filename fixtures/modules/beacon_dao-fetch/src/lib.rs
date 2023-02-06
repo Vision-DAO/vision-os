@@ -133,14 +133,22 @@ pub extern "C" fn handle_fetch(
 				),
 				Callback::new(move |stat| {
 					if stat == EXIT_FAILURE {
-						let mut slots = TASKS.write().unwrap_or_else(|_| return);
-						let cb = slots
-							.get_mut(slot)
-							.and_then(|task| task.take())
-							.unwrap_or_else(|_| return);
+						let mut slots = if let Ok(slots) = TASKS.write() {
+							slots
+						} else {
+							return;
+						};
+
+						let cb = if let Some(cb) = slots.get_mut(slot).and_then(|task| task.take())
+						{
+							cb
+						} else {
+							return;
+						};
 
 						cb.call(Err(()));
 					}
+
 					// The task will complete in a call to fetch_resp
 				}),
 			);
