@@ -26,9 +26,9 @@ pub enum Method {
 
 /// Settings which may be provided, but have defaults, for an HTTP request.
 pub struct OptionsBuilder<T: Serialize> {
-	method: Option<Method>,
-	headers: Option<HashMap<String, String>>,
-	body: Option<T>,
+	pub method: Option<Method>,
+	pub headers: Option<HashMap<String, String>>,
+	pub body: Option<T>,
 }
 
 impl<T: Serialize> From<OptionsBuilder<T>> for Options {
@@ -44,16 +44,16 @@ impl<T: Serialize> From<OptionsBuilder<T>> for Options {
 /// Settings for an HTTP request.
 #[derive(Serialize, Deserialize)]
 pub struct Options {
-	method: Method,
-	headers: HashMap<String, String>,
-	body: Option<String>,
+	pub method: Method,
+	pub headers: HashMap<String, String>,
+	pub body: Option<String>,
 }
 
 /// An HTTP response.
 #[derive(Serialize, Deserialize)]
 pub struct Response {
-	body: Option<Vec<u8>>,
-	status: usize,
+	pub body: Option<Vec<u8>>,
+	pub status: usize,
 }
 
 #[cfg(feature = "module")]

@@ -31,12 +31,13 @@ pub extern "C" fn handle_display_login(from: Address) {
 
 	fetch(
 		FETCH_ADDR,
-		String::new("https://google.com"),
-		OptionsBuilder {
+		String::from("https://google.com"),
+		OptionsBuilder::<String> {
 			method: None,
 			headers: None,
 			body: None,
-		},
+		}
+		.into(),
 		Callback::new(|_| {}),
 	);
 }
@@ -45,12 +46,13 @@ pub extern "C" fn handle_display_login(from: Address) {
 pub extern "C" fn handle_login_as(from: Address, username: String, callback: Callback<usize>) {
 	fetch(
 		FETCH_ADDR,
-		String::new("https://google.com"),
-		OptionsBuilder {
+		String::from("https://google.com"),
+		OptionsBuilder::<String> {
 			method: None,
 			headers: None,
 			body: None,
-		},
+		}
+		.into(),
 		Callback::new(|_| {}),
 	);
 }
