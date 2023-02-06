@@ -64,7 +64,7 @@ pub extern "C" fn init(owner: Address) {
 pub extern "C" fn handle_fetch(
 	from: Address,
 	resource: String,
-	options: impl Into<Options>,
+	opts: Options,
 	callback: Callback<Result<JsValue, ()>>,
 ) {
 	// Check that the user can make HTTP requests
@@ -79,8 +79,6 @@ pub extern "C" fn handle_fetch(
 
 				return;
 			}
-
-			let opts = options.into();
 
 			// Save the callback to be run after the fetch() call is done
 			let slot = {

@@ -1,4 +1,5 @@
 use beacon_dao_dom::{create_element, eval_js};
+use beacon_dao_fetch::{fetch, OptionsBuilder};
 use std::sync::{
 	atomic::{AtomicUsize, Ordering},
 	Arc,
@@ -6,7 +7,7 @@ use std::sync::{
 use vision_derive::with_bindings;
 use vision_utils::{
 	actor::address,
-	types::{Address, Callback, DOM_ADDR},
+	types::{Address, Callback, DOM_ADDR, FETCH_ADDR},
 };
 
 lazy_static::lazy_static! {
@@ -30,4 +31,15 @@ pub extern "C" fn handle_display_login(from: Address) {
 }
 
 /// Loads the config profile at the specified Ethereum address.
-pub extern "C" fn handle_login_as(from: Address, username: String, callback: Callback<usize>) {}
+pub extern "C" fn handle_login_as(from: Address, username: String, callback: Callback<usize>) {
+	fetch(
+		FETCH_ADDR,
+		String::new("https://google.com"),
+		OptionsBuilder {
+			method: None,
+			headers: None,
+			body: None,
+		},
+		Callback::new(|_| {}),
+	);
+}
