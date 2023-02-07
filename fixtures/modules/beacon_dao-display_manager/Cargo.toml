@@ -14,4 +14,3 @@ vision-utils = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git" }
 vision-derive = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git" }
 beacon_dao-dom = { path = "../beacon_dao-dom" }
 lazy_static = "1.4.0"
-beacon_dao-fetch = { path = "../beacon_dao-fetch" }

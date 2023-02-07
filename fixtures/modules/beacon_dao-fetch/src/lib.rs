@@ -1,8 +1,6 @@
 use beacon_dao_dom::eval_js;
 use beacon_dao_permissions::{beacon_dao_allocator::read, has_permission, register_permission};
-use js_sys::JSON;
 use serde::{Deserialize, Serialize};
-use serde_wasm_bindgen;
 use std::{collections::HashMap, sync::RwLock};
 use vision_derive::with_bindings;
 use vision_utils::types::{
