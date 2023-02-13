@@ -1,5 +1,5 @@
 use beacon_dao_dom::{create_element, eval_js};
-use beacon_dao_fetch::{fetch, OptionsBuilder};
+use beacon_dao_fetch::{fetch, OptionsBuilder, Response};
 use std::sync::{
 	atomic::{AtomicUsize, Ordering},
 	Arc,
@@ -16,7 +16,7 @@ lazy_static::lazy_static! {
 
 #[no_mangle]
 pub extern "C" fn handle_display_login(from: Address) {
-	/*create_element(
+	create_element(
 		DOM_ADDR,
 		String::from("div"),
 		include_str!("./index.html").to_owned(),
@@ -27,18 +27,6 @@ pub extern "C" fn handle_display_login(from: Address) {
 				Callback::new(|_| {}),
 			);
 		}),
-	);*/
-
-	fetch(
-		FETCH_ADDR,
-		String::from("https://google.com"),
-		OptionsBuilder::<String> {
-			method: None,
-			headers: None,
-			body: None,
-		}
-		.into(),
-		Callback::new(|_| {}),
 	);
 }
 

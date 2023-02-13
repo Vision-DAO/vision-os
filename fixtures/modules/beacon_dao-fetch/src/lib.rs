@@ -1,7 +1,17 @@
 use beacon_dao_dom::eval_js;
-use beacon_dao_permissions::{beacon_dao_allocator::read, has_permission, register_permission};
+use beacon_dao_permissions::{
+	beacon_dao_allocator::{len, read},
+	has_permission, register_permission,
+};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::RwLock};
+use serde_json::{Map, Value};
+use std::{
+	collections::HashMap,
+	sync::{
+		atomic::{AtomicUsize, Ordering},
+		Arc, Mutex, RwLock,
+	},
+};
 use vision_derive::with_bindings;
 use vision_utils::types::{
 	Address, Callback, DISPLAY_MANAGER_ADDR, DOM_ADDR, EXIT_FAILURE, EXIT_SUCCESS,
@@ -34,7 +44,7 @@ impl<T: Serialize> From<OptionsBuilder<T>> for Options {
 		Options {
 			method: opts.method.take().unwrap_or(Method::GET),
 			headers: opts.headers.take().unwrap_or(HashMap::new()),
-			body: serde_json::to_string(&opts.body).ok(),
+			body: opts.body.and_then(|body| serde_json::to_string(&body).ok()),
 		}
 	}
 }
@@ -44,13 +54,14 @@ impl<T: Serialize> From<OptionsBuilder<T>> for Options {
 pub struct Options {
 	pub method: Method,
 	pub headers: HashMap<String, String>,
+	#[serde(skip_serializing_if = "Option::is_none")]
 	pub body: Option<String>,
 }
 
 /// An HTTP response.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Response {
-	pub body: Option<Vec<u8>>,
+	pub body: Option<Map<String, Value>>,
 	pub status: usize,
 }
 
@@ -126,11 +137,14 @@ pub extern "C" fn handle_fetch(
 			eval_js(
 				DOM_ADDR,
 				format!(
-					"fetch({}, {}).then((resp) => impulse(address(), 'fetch_resp', [{}, resp]))",
-					resource, opts_ser, slot,
+					"fetch('{}', {})
+						  .then((resp) => impulse(address(), 'fetch_resp', {}, {{ status: resp.status, body: resp.body }}))
+						  .catch((err) => impulse(address(), 'fetch_resp_err', {}, err))",
+					resource, opts_ser, slot, slot,
 				),
 				Callback::new(move |stat| {
-					if stat == EXIT_FAILURE {
+					if stat as u32 == EXIT_FAILURE {
+						// This happens. TODO Fix
 						let mut slots = if let Ok(slots) = TASKS.write() {
 							slots
 						} else {
@@ -163,6 +177,68 @@ pub extern "C" fn handle_fetch_resp(
 	json_cell: Address,
 	callback: Callback<u32>,
 ) {
+	// Wait until all characters have been read
+	len(
+		json_cell,
+		Callback::new(move |to_read| {
+			// Make a string of n spaces
+			let buff = Arc::new(Mutex::new(
+				(0..to_read).map(|_| '\0').collect::<Vec<char>>(),
+			));
+			let n_read = Arc::new(AtomicUsize::new(0));
+
+			// Concurrently read n bytes
+			for i in 0..to_read {
+				let buff = buff.clone();
+				let n_read = n_read.clone();
+
+				read(
+					json_cell,
+					i,
+					Callback::new(move |c: u8| {
+						*buff.lock().unwrap().get_mut(i as usize).unwrap() = c as char;
+
+						// We read the last character
+						if n_read.fetch_add(1usize, Ordering::SeqCst) == (to_read as usize) - 1usize
+						{
+							let task = if let Some(task) =
+								TASKS.write().ok().and_then(|mut tasks| {
+									tasks.get_mut(cb_id as usize).and_then(|task| task.take())
+								}) {
+								task
+							} else {
+								return;
+							};
+
+							let read_str: String = buff.lock().unwrap().drain(..).collect();
+							let read_resp =
+								if let Ok(resp) = serde_json::from_str(read_str.as_str()) {
+									resp
+								} else {
+									task.call(Err(()));
+
+									return;
+								};
+
+							task.call(Ok(read_resp));
+						}
+					}),
+				);
+			}
+		}),
+	);
+}
+
+/// Calls the registered task callback for the erronous fetch call.
+#[no_mangle]
+#[with_bindings]
+pub extern "C" fn handle_fetch_resp_err(
+	from: Address,
+	cb_id: u32,
+	json_cell: Address,
+	callback: Callback<u32>,
+) {
+	// Read message here
 	let task = if let Some(task) = TASKS
 		.write()
 		.ok()
@@ -175,43 +251,5 @@ pub extern "C" fn handle_fetch_resp(
 		return;
 	};
 
-	// Wait until all {} have been closed
-	let buff = String::new();
-	let unmatched = Vec::new();
-
-	fn pop_c(
-		mut buf: String,
-		mut unmatched: Vec<()>,
-		pos: u32,
-		cell: Address,
-		task: Callback<Result<Response, ()>>,
-	) {
-		read(
-			cell,
-			pos,
-			Callback::new(move |c: u8| {
-				let c = c as char;
-
-				if c == '{' {
-					unmatched.push(());
-				} else if c == '}' {
-					unmatched.pop();
-				}
-
-				buf.push(c);
-
-				// The JS object finished transmitting
-				if unmatched.len() == 0 {
-					task.call(serde_json::from_str(buf.as_str()).map_err(|_| ()));
-
-					return;
-				}
-
-				// Still more to go
-				pop_c(buf, unmatched, pos + 1, cell, task);
-			}),
-		);
-	}
-
-	pop_c(buff, unmatched, 0, json_cell, task);
+	task.call(Err(()));
 }

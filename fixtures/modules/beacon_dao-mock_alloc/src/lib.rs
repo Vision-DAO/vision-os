@@ -28,18 +28,6 @@ pub extern "C" fn alloc() -> Address {
 #[no_mangle]
 pub extern "C" fn append(val: u8) {
 	if let Ok(mut lock) = VAL.write() {
-		{
-			extern "C" {
-				fn print(s: i32);
-			}
-
-			let msg = std::ffi::CString::new(format!("{:?}", val)).unwrap();
-
-			unsafe {
-				print(msg.as_ptr() as i32);
-			}
-		}
-
 		lock.push(val);
 	}
 }

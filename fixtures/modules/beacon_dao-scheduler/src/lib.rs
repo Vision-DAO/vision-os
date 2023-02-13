@@ -21,7 +21,7 @@ pub fn start() {
 	RT.spawn(
 		None,
 		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_permissions.wasm"),
-		false,
+		true,
 	)
 	.expect("Failed to start permissions service");
 
