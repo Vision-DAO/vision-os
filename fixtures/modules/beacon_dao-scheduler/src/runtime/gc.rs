@@ -1,4 +1,6 @@
-use super::{CompileSnafu, Error, InstantiationSnafu, LockSnafu, ModuleSnafu, RuntimeSnafu};
+use super::{
+	CompileSnafu, Error, InstantiationSnafu, LockSnafu, ModuleSnafu, RuntimeSnafu, WasmError,
+};
 use crate::common::Address;
 
 use std::{
@@ -272,7 +274,7 @@ impl Rt {
 
 		// Dynamically get the WASM src by reading from a cell
 		let src = {
-			let store = child.store.write().map_err(|_| Error::LockError)?;
+			let mut store = child.store.write().map_err(|_| Error::LockError)?;
 
 			let len_fn = child
 				.instance
@@ -290,13 +292,34 @@ impl Rt {
 				.context(ModuleSnafu)?;
 
 			let len = len_fn
-				.call(store, &[])
+				.call(store.deref_mut(), &[])
 				.context(RuntimeSnafu)
+				.and_then(|ret| {
+					ret.get(0)
+						.and_then(|len| match len {
+							Value::I32(v) => Some(v.clone()),
+							_ => None,
+						})
+						.ok_or(WasmError::CompileError)
+				})
 				.context(ModuleSnafu)?;
-			let src: Vec<u8> = Vec::new();
+			let mut src: Vec<u8> = Vec::new();
 
 			for i in 0..len {
-				src.push(read_fn.call(store, &[Value::I32(i)]));
+				src.push(
+					read_fn
+						.call(store.deref_mut(), &[Value::I32(i)])
+						.context(RuntimeSnafu)
+						.and_then(|ret| {
+							ret.get(0)
+								.and_then(|v| match v {
+									Value::I32(v) => Some(*v as u8),
+									_ => None,
+								})
+								.ok_or(WasmError::CompileError)
+						})
+						.context(ModuleSnafu)?,
+				);
 			}
 
 			src
