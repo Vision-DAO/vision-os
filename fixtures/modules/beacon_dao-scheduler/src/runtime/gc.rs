@@ -270,11 +270,9 @@ impl Rt {
 				.ok_or(Error::InvalidAddressError)?
 		};
 
+		// Dynamically get the WASM src by reading from a cell
 		let src = {
-			let store = child
-									.store
-									.write()
-									.map_err(|_| Error::LockError)?;
+			let store = child.store.write().map_err(|_| Error::LockError)?;
 
 			let len_fn = child
 				.instance
@@ -291,13 +289,20 @@ impl Rt {
 				.context(CompileSnafu)
 				.context(ModuleSnafu)?;
 
-			let len = len_fn.call(store, &[]).context(RuntimeSnafu).context(ModuleSnafu)?;
+			let len = len_fn
+				.call(store, &[])
+				.context(RuntimeSnafu)
+				.context(ModuleSnafu)?;
 			let src: Vec<u8> = Vec::new();
 
 			for i in 0..len {
-				src.push(read_fn.call(
+				src.push(read_fn.call(store, &[Value::I32(i)]));
 			}
+
+			src
 		};
+
+		self.spawn(spawner, src, false)
 	}
 
 	fn send_message(
