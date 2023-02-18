@@ -96,6 +96,22 @@ pub extern "C" fn handle_read(from: Address, offset: u32, callback: Callback<u8>
 	);
 }
 
+/// Synchronously reads from the cell.
+#[no_mangle]
+pub extern "C" fn read_sync(offset: u32) -> u8 {
+	VAL.read()
+		.unwrap()
+		.get(offset as usize)
+		.map(|byte| *byte)
+		.unwrap()
+}
+
+/// Synchronously gets the length of the cell.
+#[no_mangle]
+pub extern "C" fn len_sync() -> u32 {
+	VAL.read().unwrap().len().try_into().unwrap()
+}
+
 #[no_mangle]
 #[with_bindings(self)]
 pub extern "C" fn handle_write(from: Address, offset: u32, val: u8, callback: Callback<u8>) {

@@ -252,6 +252,54 @@ impl Rt {
 		self.spawn(spawner, src, false)
 	}
 
+	fn do_spawn_actor_from(
+		&self,
+		spawner: Option<Address>,
+		addr: Address,
+	) -> Result<Address, Error> {
+		let child = {
+			let children = self
+				.children
+				.read()
+				.map_err(|_| NoneError)
+				.context(LockSnafu)?;
+
+			children
+				.get(addr as usize)
+				.and_then(|child| child.clone())
+				.ok_or(Error::InvalidAddressError)?
+		};
+
+		let src = {
+			let store = child
+									.store
+									.write()
+									.map_err(|_| Error::LockError)?;
+
+			let len_fn = child
+				.instance
+				.exports
+				.get_function("len_sync")
+				.map_err(|_| NoneError)
+				.context(CompileSnafu)
+				.context(ModuleSnafu)?;
+			let read_fn = child
+				.instance
+				.exports
+				.get_function("read_sync")
+				.map_err(|_| NoneError)
+				.context(CompileSnafu)
+				.context(ModuleSnafu)?;
+
+			let len = len_fn.call(store, &[]).context(RuntimeSnafu).context(ModuleSnafu)?;
+			let src: Vec<u8> = Vec::new();
+
+			for i in 0..len {
+				src.push(read_fn.call(
+			}
+		};
+	}
+
 	fn send_message(
 		env: FunctionEnvMut<(Address, Rt)>,
 		addr: Address,
@@ -272,6 +320,14 @@ impl Rt {
 		env.data()
 			.1
 			.do_spawn_actor(Some(env.data().0), addr)
+			.unwrap()
+	}
+
+	/// Spawns an actor from the webassembly module code in the indicated memory cell.
+	fn spawn_actor_from(env: FunctionEnvMut<(Address, Rt)>, addr: Address) -> Address {
+		env.data()
+			.1
+			.do_spawn_actor_from(Some(env.data().0), addr)
 			.unwrap()
 	}
 

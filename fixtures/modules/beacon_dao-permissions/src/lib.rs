@@ -1,7 +1,7 @@
 pub use vision_derive::beacon_dao_allocator;
 
 use vision_derive::with_bindings;
-use vision_utils::types::{Address, Callback};
+use vision_utils::types::{Address, Callback, DISPLAY_MANAGER_ADDR};
 
 use std::{
 	collections::{HashMap, HashSet},
@@ -52,9 +52,31 @@ pub fn handle_has_permission(
 	}
 }
 
-#[no_mangle]
+// TODO: Move this to a separate module
+/*#[no_mangle]
 #[with_bindings]
 pub fn handle_request_permission(from: Address, permission: String, callback: Callback<bool>) {
-	// TODO: Implement this
-	unimplemented!()
+	if let Ok(lock) = PERMISSIONS.write() {
+		let desc = if let Some(desc) = lock
+			.get(&permission)
+			.map(|actors_with_perm| actors_with_perm.0)
+		{
+			desc
+		} else {
+			callback.call(false);
+
+			return;
+		};
+
+		system_dialogue(
+			DISPLAY_MANAGER_ADDR,
+			format!("Grant Actor #{} Access to {}"),
+			desc,
+			DialogueKind::Choice(String::from("Yes"), String::from("No")),
+			Callback::new(|stat| callback.call(stat == 0)),
+		);
+	} else {
+		callback.call(false);
+	}
 }
+*/

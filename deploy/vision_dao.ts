@@ -28,7 +28,10 @@ const DEP_DAO_CONF = {
 /**
  * Deploys a DAO, delegating 1,000,000 VIS to the specified DAO_SETUP_ADDRESS.
  */
-const deployment: DeployFunction = async ({ deployments: { deploy }, getUnnamedAccounts }) => {
+const deployment: DeployFunction = async ({
+	deployments: { deploy },
+	getUnnamedAccounts,
+}) => {
 	const deployer = await getUnnamedAccounts().then((accounts) => accounts[0]);
 
 	// Upload the metadata for the DAO
@@ -38,7 +41,12 @@ const deployment: DeployFunction = async ({ deployments: { deploy }, getUnnamedA
 	// Create the DAO
 	await deploy("Idea", {
 		from: deployer,
-		args: [DEP_DAO_DETAILS.title, DEP_DAO_CONF.symbol, DEP_DAO_CONF.supply, cid.toString()],
+		args: [
+			DEP_DAO_DETAILS.title,
+			DEP_DAO_CONF.symbol,
+			DEP_DAO_CONF.supply,
+			cid.toString(),
+		],
 	});
 };
 
