@@ -144,7 +144,6 @@ pub extern "C" fn handle_fetch(
 				),
 				Callback::new(move |stat| {
 					if stat as u32 == EXIT_FAILURE {
-						// This happens. TODO Fix
 						let mut slots = if let Ok(slots) = TASKS.write() {
 							slots
 						} else {

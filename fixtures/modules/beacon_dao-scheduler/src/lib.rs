@@ -95,6 +95,24 @@ pub fn start() {
 	)
 	.expect("Failed to start HTTP client.");
 
+	// Web3 client module
+	RT.spawn(
+		None,
+		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_web3.wasm"),
+		true,
+	)
+	.expect("Failed to start web3 client.");
+
+	// Permission delegate
+	RT.spawn(
+		None,
+		include_bytes!(
+			"../../target/wasm32-unknown-unknown/release/beacon_dao_permissions_consent.wasm"
+		),
+		true,
+	)
+	.expect("Failed to start permissions delegate");
+
 	RT.impulse(None, DISPLAY_MANAGER_ADDR, "display_login", &[][..])
 		.expect("Failed to login");
 }

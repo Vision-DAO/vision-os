@@ -525,6 +525,8 @@ impl Rt {
 		let env = FunctionEnv::new(&mut store, (slot, self.clone()));
 		let send_message_fn = Function::new_typed_with_env(&mut store, &env, Self::send_message);
 		let spawn_actor_fn = Function::new_typed_with_env(&mut store, &env, Self::spawn_actor);
+		let spawn_actor_from_fn =
+			Function::new_typed_with_env(&mut store, &env, Self::spawn_actor_from);
 		let env = FunctionEnv::new(&mut store, slot);
 		let address_fn = Function::new_typed_with_env(&mut store, &env, Self::address);
 		let env = FunctionEnv::new(&mut store, (slot, self.clone()));
@@ -534,6 +536,7 @@ impl Rt {
 				"env" => {
 					"send_message" => send_message_fn,
 					"spawn_actor" => spawn_actor_fn,
+					"spawn_actor_from" => spawn_actor_from_fn,
 
 					// Gets the address of the calling actor
 					"address" => address_fn,
@@ -547,6 +550,7 @@ impl Rt {
 				"env" => {
 					"send_message" => send_message_fn,
 					"spawn_actor" => spawn_actor_fn,
+					"spawn_actor_from" => spawn_actor_from_fn,
 
 					// Gets the address of the calling actor
 					"address" => address_fn,

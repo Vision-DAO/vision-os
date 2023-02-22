@@ -1,5 +1,5 @@
 [package]
-name = "beacon_dao-display_manager"
+name = "beacon_dao-permissions_consent"
 version = "0.1.0"
 edition = "2021"
 
@@ -12,8 +12,7 @@ module = []
 [dependencies]
 vision-utils = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git" }
 vision-derive = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git" }
-beacon_dao-dom = { path = "../beacon_dao-dom" }
-beacon_dao-fetch = { path = "../beacon_dao-fetch" }
 lazy_static = "1.4.0"
 serde = { version = "1.0.145", features = ["serde_derive"] }
-beacon_dao-web3 = { path = "../beacon_dao-web3" }
+beacon_dao-permissions = { path = "../beacon_dao-permissions" }
+beacon_dao-display_manager = { path = "../beacon_dao-display_manager" }

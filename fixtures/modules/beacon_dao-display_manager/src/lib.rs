@@ -1,14 +1,20 @@
 use beacon_dao_dom::{create_element, eval_js};
 use beacon_dao_fetch::{fetch, OptionsBuilder, Response};
+use beacon_dao_web3::{change_endpoint, get_endpoint, DEFAULT_NETWORKS};
 use serde::{Deserialize, Serialize};
 use std::sync::{
 	atomic::{AtomicUsize, Ordering},
 	Arc, RwLock,
 };
-use vision_derive::with_bindings;
+use vision_derive::{
+	beacon_dao_allocator::{allocate, grow, write},
+	with_bindings,
+};
 use vision_utils::{
-	actor::address,
-	types::{Address, Callback, DOM_ADDR, FETCH_ADDR, PERM_ADDR},
+	actor::{address, spawn_actor_from},
+	types::{
+		Address, Callback, ALLOCATOR_ADDR, DOM_ADDR, EXIT_SUCCESS, FETCH_ADDR, PERM_ADDR, WEB3_ADDR,
+	},
 };
 
 /// Kinds of dialogues supported by the display manager.
@@ -24,21 +30,53 @@ pub enum DialogueKind {
 	Choice(String, String),
 }
 
+/// Spawns an actor from the given bytes
+fn spawn_bytes(bytes: Arc<Vec<u8>>, callback: Callback<u8>) {
+	allocate(
+		ALLOCATOR_ADDR,
+		Callback::new(|cell_addr| {
+			grow(
+				cell_addr,
+				bytes.as_ref().len() as u32,
+				Callback::new(move |_| {
+					let remaining = Arc::new(AtomicUsize::new(bytes.len()));
+
+					for (i, b) in bytes.as_ref().iter().enumerate() {
+						let rem = remaining.clone();
+						let cb = callback.clone();
+						write(
+							cell_addr,
+							i as u32,
+							*b,
+							Callback::new(move |_| {
+								// Last byte written. Spawn an actor from the bytes
+								if rem.fetch_sub(1, Ordering::SeqCst) == 1 {
+									spawn_actor_from(cell_addr);
+
+									cb.call(EXIT_SUCCESS as u8);
+								}
+							}),
+						);
+					}
+				}),
+			);
+		}),
+	);
+}
+
 /// Loads the config profile at the specified Ethereum address.
 #[no_mangle]
 #[with_bindings]
 pub extern "C" fn handle_login_as(from: Address, username: String, callback: Callback<u32>) {
-	fetch(
-		FETCH_ADDR,
-		String::from("https://google.com"),
-		OptionsBuilder::<String> {
-			method: None,
-			headers: None,
-			body: None,
-		}
-		.into(),
-		Callback::new(|_| {}),
-	);
+	// Login as the default 'guest' user
+	if username.is_empty() {
+		// TODO: Put some address here
+
+		return;
+	}
+
+	// TODO: Resolve ENS name
+	// TODO: Resolve modules at that address
 }
 
 /// System dialogue callbacks.
@@ -83,7 +121,7 @@ pub extern "C" fn handle_system_dialogue(
 		DialogueKind::Choice(yes, no) => create_element(
 			DOM_ADDR,
 			String::from("div"),
-			include_str!("./dialogue.html")
+			include_str!("./dialogue/dialogue.html")
 				.to_owned()
 				.replace("#yes#", &yes)
 				.replace("#no#", &no)
@@ -92,7 +130,7 @@ pub extern "C" fn handle_system_dialogue(
 			Callback::new(move |_| {
 				eval_js(
 					DOM_ADDR,
-					include_str!("./dialogue.js")
+					include_str!("./dialogue/dialogue.js")
 						.to_owned()
 						.replace("#cbid#", &slot.to_string()),
 					Callback::new(|_| {}),
@@ -141,5 +179,78 @@ pub extern "C" fn handle_display_login(from: Address) {
 				Callback::new(|_| {}),
 			);
 		}),
+	);
+
+	// Add a task bar with some basic information on it
+	create_element(
+		DOM_ADDR,
+		String::from("div"),
+		include_str!("./taskbar/taskbar.html").to_owned(),
+		Callback::new(|_| {
+			eval_js(
+				DOM_ADDR,
+				include_str!("./taskbar/taskbar.js").to_owned(),
+				Callback::new(|_| {}),
+			);
+		}),
+	);
+}
+
+/// Displays the network chooser dialogue.
+#[no_mangle]
+pub extern "C" fn handle_change_network(from: Address, nonce: usize, callback: Callback<u32>) {
+	// Make the current network the bolded option
+	get_endpoint(
+		WEB3_ADDR,
+		Callback::new(move |curr_network| {
+			let curr_net_index = DEFAULT_NETWORKS
+				.iter()
+				.position(|x| x == &curr_network)
+				.unwrap();
+
+			extern "C" {
+				fn print(s: i32);
+			}
+
+			let msg = std::ffi::CString::new(format!("ping {}", curr_net_index)).unwrap();
+
+			unsafe {
+				print(msg.as_ptr() as i32);
+			}
+
+			create_element(
+				DOM_ADDR,
+				String::from("div"),
+				include_str!("./netdialogue/netdialogue.html")
+					.to_owned()
+					.replace(
+						"#choices#",
+						&DEFAULT_NETWORKS.iter().enumerate().fold(String::new(), |acc, (i, net)| {
+							format!(
+								"{}\n<p class=\"netChoice\" style=\"margin: 0; margin-bottom: 0.5em; cursor: pointer; background-color: #8241BA; text-transform: uppercase; padding: 0.5em; border-radius: 0.25em; transition: 0.3s{}\">{}</p>",
+								acc, if i == curr_net_index { "; font-weight: bold"} else { "" }, net.name
+							)
+						}),
+					)
+					.replace("#curr#", &curr_net_index.to_string()),
+				Callback::new(|_| {
+					eval_js(
+						DOM_ADDR,
+						include_str!("./netdialogue/netdialogue.js").to_owned(),
+						Callback::new(|_| {}),
+					);
+				}),
+			);
+		}),
+	);
+}
+
+/// Changes the web3 adapter network according to the chosen network.
+#[no_mangle]
+pub extern "C" fn handle_do_change_network(from: Address, index: u32, callback: Callback<u32>) {
+	change_endpoint(
+		WEB3_ADDR,
+		DEFAULT_NETWORKS[index as usize].clone(),
+		Callback::new(|_| {}),
 	);
 }
