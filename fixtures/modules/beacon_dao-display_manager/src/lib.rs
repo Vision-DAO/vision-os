@@ -228,7 +228,7 @@ pub extern "C" fn handle_change_network(from: Address, nonce: usize, callback: C
 						&DEFAULT_NETWORKS.iter().enumerate().fold(String::new(), |acc, (i, net)| {
 							format!(
 								"{}\n<p class=\"netChoice\" style=\"margin: 0; margin-bottom: 0.5em; cursor: pointer; background-color: #8241BA; text-transform: uppercase; padding: 0.5em; border-radius: 0.25em; transition: 0.3s{}\">{}</p>",
-								acc, if i == curr_net_index { "; font-weight: bold"} else { "" }, net.name
+								acc, if i == curr_net_index { "; font-weight: bold" } else { "" }, net.name
 							)
 						}),
 					)
