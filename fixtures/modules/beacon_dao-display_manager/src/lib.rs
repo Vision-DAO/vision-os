@@ -233,10 +233,10 @@ pub extern "C" fn handle_change_network(from: Address, nonce: usize, callback: C
 						}),
 					)
 					.replace("#curr#", &curr_net_index.to_string()),
-				Callback::new(|_| {
+				Callback::new(move |_| {
 					eval_js(
 						DOM_ADDR,
-						include_str!("./netdialogue/netdialogue.js").to_owned(),
+						include_str!("./netdialogue/netdialogue.js").to_owned().replace("#curr#", &curr_net_index.to_string()),
 						Callback::new(|_| {}),
 					);
 				}),
