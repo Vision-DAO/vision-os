@@ -13,12 +13,6 @@ pub fn handle_request_permission(from: Address, permission: String, callback: Ca
 		PERM_ADDR,
 		permission.clone(),
 		Callback::new(move |desc: Option<String>| {
-			info(
-				LOGGER_ADDR,
-				format!("perm: {:?}", desc),
-				Callback::new(|_| {}),
-			);
-
 			let desc = if let Some(desc) = desc {
 				desc
 			} else {

@@ -1,5 +1,6 @@
 use beacon_dao_dom::{create_element, eval_js};
 use beacon_dao_fetch::{fetch, OptionsBuilder, Response};
+use beacon_dao_logger_manager::info;
 use beacon_dao_web3::{
 	change_endpoint, eth_call, get_endpoint, BlockSelector, TransactionCall, DEFAULT_NETWORKS,
 };
@@ -16,7 +17,7 @@ use vision_utils::{
 	actor::{address, spawn_actor_from},
 	types::{
 		Address, Callback, ALLOCATOR_ADDR, DOM_ADDR, EXIT_FAILURE, EXIT_SUCCESS, FETCH_ADDR,
-		PERM_ADDR, WEB3_ADDR,
+		LOGGER_ADDR, PERM_ADDR, PERM_AGENT_ADDR, WEB3_ADDR,
 	},
 };
 
@@ -127,7 +128,7 @@ pub extern "C" fn handle_system_dialogue(
 	kind: DialogueKind,
 	callback: Callback<u32>,
 ) {
-	if from != PERM_ADDR && from != address() {
+	if from != PERM_ADDR && from != address() && from != PERM_AGENT_ADDR {
 		callback.call(2);
 
 		return;

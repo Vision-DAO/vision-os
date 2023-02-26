@@ -68,15 +68,6 @@ pub struct Response {
 #[cfg(feature = "module")]
 #[no_mangle]
 pub extern "C" fn handle_init_async(owner: Address) {
-	extern "C" {
-		fn print(s: i32);
-	}
-
-	let msg = std::ffi::CString::new(format!("registsering {} {}", PERM, DESCRIPTION)).unwrap();
-
-	unsafe {
-		print(msg.as_ptr() as i32);
-	}
 	register_permission(
 		PERM_ADDR,
 		PERM.to_owned(),
