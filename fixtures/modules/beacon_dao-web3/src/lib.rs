@@ -62,7 +62,7 @@ lazy_static::lazy_static! {
 
 #[cfg(feature = "module")]
 #[no_mangle]
-pub extern "C" fn init(owner: Address) {
+pub extern "C" fn handle_init_async(owner: Address) {
 	register_permission(
 		PERM_ADDR,
 		PERM_CHANGE.to_owned(),

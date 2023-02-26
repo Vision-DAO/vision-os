@@ -25,27 +25,9 @@ pub extern "C" fn handle_register_permission(
 	description: String,
 	callback: Callback<u8>,
 ) {
-	extern "C" {
-						fn print(s: i32);
-					}
-
-		let msg = std::ffi::CString::new(format!("inserting {} {}", name.clone(), description.clone())).unwrap();
-
-					unsafe {
-						print(msg.as_ptr() as i32);
-					}
-
 	if let Ok(mut lock) = PERMISSIONS.write() {
-		lock.entry(name.clone()).or_insert((description.clone(), HashSet::new()));
-		extern "C" {
-						fn print(s: i32);
-					}
-
-		let msg = std::ffi::CString::new(format!("inserted {} {}", name.clone(), description.clone())).unwrap();
-
-					unsafe {
-						print(msg.as_ptr() as i32);
-					}
+		lock.entry(name.clone())
+			.or_insert((description.clone(), HashSet::new()));
 
 		callback.call(0);
 	} else {

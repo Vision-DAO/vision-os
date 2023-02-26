@@ -494,17 +494,17 @@ impl Rt {
 			.context(LockSnafu)?;
 		let lock = self.children.write();
 		let mut children = lock.map_err(|_| NoneError).context(LockSnafu)?;
-		let mut mailboxes = self
-			.mailboxes
-			.write()
-			.map_err(|_| NoneError)
-			.context(LockSnafu)?;
 
 		// Use the most recently freed process ID as the ID of the new process,
 		// or use the index of a new slot
 		let slot: Address = if let Some(free_slot) = slots.pop() {
 			free_slot
 		} else {
+			let mut mailboxes = self
+				.mailboxes
+				.write()
+				.map_err(|_| NoneError)
+				.context(LockSnafu)?;
 			let new_slot =
 				TryInto::<u32>::try_into(children.len()).map_err(|_| Error::NoFreeAddrs)?;
 			children.push(None);
@@ -563,12 +563,6 @@ impl Rt {
 			.context(InstantiationSnafu)
 			.context(ModuleSnafu)?;
 
-		log(&format!(
-			"{} is {:?}",
-			slot,
-			instance.exports.get_function("init")
-		));
-
 		if let Ok(init) = instance.exports.get_function("init") {
 			if let Some(addr) = spawner {
 				init.call(&mut store, &[Value::I32(addr as i32)]).unwrap();
@@ -601,6 +595,7 @@ impl Rt {
 		// Addresses are just indices in the set of current children
 		// (ID's reused if a slot is freed)
 		children[slot as usize] = Some(Arc::new(actor));
+		self.impulse(spawner, slot, "init_async", &[][..]);
 
 		Ok(slot)
 	}
