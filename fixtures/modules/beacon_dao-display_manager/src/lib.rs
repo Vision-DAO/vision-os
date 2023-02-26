@@ -1,6 +1,8 @@
 use beacon_dao_dom::{create_element, eval_js};
 use beacon_dao_fetch::{fetch, OptionsBuilder, Response};
-use beacon_dao_web3::{change_endpoint, get_endpoint, DEFAULT_NETWORKS};
+use beacon_dao_web3::{
+	change_endpoint, eth_call, get_endpoint, BlockSelector, TransactionCall, DEFAULT_NETWORKS,
+};
 use serde::{Deserialize, Serialize};
 use std::sync::{
 	atomic::{AtomicUsize, Ordering},
@@ -13,7 +15,8 @@ use vision_derive::{
 use vision_utils::{
 	actor::{address, spawn_actor_from},
 	types::{
-		Address, Callback, ALLOCATOR_ADDR, DOM_ADDR, EXIT_SUCCESS, FETCH_ADDR, PERM_ADDR, WEB3_ADDR,
+		Address, Callback, ALLOCATOR_ADDR, DOM_ADDR, EXIT_FAILURE, EXIT_SUCCESS, FETCH_ADDR,
+		PERM_ADDR, WEB3_ADDR,
 	},
 };
 
@@ -77,6 +80,35 @@ pub extern "C" fn handle_login_as(from: Address, username: String, callback: Cal
 
 	// TODO: Resolve ENS name
 	// TODO: Resolve modules at that address
+	// Decode hex bytes from 0x string
+	let mut addr_bytes = [0; 20];
+	if let Err(_) = hex::decode_to_slice(username, &mut addr_bytes as &mut [u8]) {
+		callback.call(EXIT_FAILURE);
+
+		return;
+	}
+
+	// Get the IPFS address of the metadata associated with the user account
+	eth_call(
+		WEB3_ADDR,
+		TransactionCall {
+			from: None,
+			to: addr_bytes,
+			gas: None,
+			gasPrice: None,
+			value: None,
+			data: None,
+		},
+		BlockSelector::Latest,
+		Callback::new(|res| {
+			let v = if let Ok(v) = res {
+				v
+			} else {
+				callback.call(EXIT_FAILURE);
+				return;
+			};
+		}),
+	)
 }
 
 /// System dialogue callbacks.
@@ -207,16 +239,6 @@ pub extern "C" fn handle_change_network(from: Address, nonce: usize, callback: C
 				.iter()
 				.position(|x| x == &curr_network)
 				.unwrap();
-
-			extern "C" {
-				fn print(s: i32);
-			}
-
-			let msg = std::ffi::CString::new(format!("ping {}", curr_net_index)).unwrap();
-
-			unsafe {
-				print(msg.as_ptr() as i32);
-			}
 
 			create_element(
 				DOM_ADDR,

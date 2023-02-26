@@ -15,9 +15,6 @@ const PERM_CHANGE_DESC: &'static str = "change which Ethereum network you're con
 const PERM_USE: &'static str = "use web3";
 const PERM_USE_DESC: &'static str = "interact with the Ethereum network.";
 
-// Todo: implement permission for changing adapter URL (mainnet by default)
-// Todo: implement permission for making requests
-
 /// Errors that might be encountered when using this API.
 #[derive(Serialize, Deserialize)]
 pub enum Error {
@@ -147,18 +144,21 @@ impl From<BlockSelector> for String {
 /// Parameters for a request to make a call to an Ethereum contract.
 #[derive(Serialize, Deserialize)]
 pub struct TransactionCall {
-	from: Option<[u8; 20]>,
-	to: [u8; 20],
-	gas: Option<usize>,
-	gasPrice: Option<usize>,
-	value: Option<usize>,
-	data: Option<String>,
+	pub from: Option<[u8; 20]>,
+	pub to: [u8; 20],
+	pub gas: Option<usize>,
+	pub gasPrice: Option<usize>,
+	pub value: Option<usize>,
+	pub data: Option<String>,
 }
 
 /// Executes a call on an Ethereum contract. Wraps eth_call.
+#[no_mangle]
+#[with_bindings]
 pub fn handle_eth_call(
 	from: Address,
-	params: (TransactionCall, BlockSelector),
+	params_0: TransactionCall,
+	params_1: BlockSelector,
 	callback: Callback<Result<String, Error>>,
 ) {
 	has_permission(
@@ -180,8 +180,8 @@ pub fn handle_eth_call(
 				return;
 			};
 
-			let (p1, p2) = match serde_json::to_value(params.0)
-				.and_then(|p1| serde_json::to_value(params.1).map(|p2| (p1, p2)))
+			let (p1, p2) = match serde_json::to_value(params_0)
+				.and_then(|p1| serde_json::to_value(params_1).map(|p2| (p1, p2)))
 			{
 				Ok((p1, p2)) => (p1, p2),
 				Err(_) => {

@@ -17,3 +17,4 @@ beacon_dao-fetch = { path = "../beacon_dao-fetch" }
 lazy_static = "1.4.0"
 serde = { version = "1.0.145", features = ["serde_derive"] }
 beacon_dao-web3 = { path = "../beacon_dao-web3" }
+hex = "0.4.3"

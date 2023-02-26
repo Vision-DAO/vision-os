@@ -113,8 +113,19 @@ pub fn start() {
 	)
 	.expect("Failed to start permissions delegate");
 
+	// Permission test system
+	RT.spawn(
+		None,
+		include_bytes!(
+			"../../target/wasm32-unknown-unknown/release/beacon_dao_permissions_test.wasm"
+		),
+		false,
+	)
+	.expect("Failed to start test");
+
 	RT.impulse(None, DISPLAY_MANAGER_ADDR, "display_login", &[][..])
 		.expect("Failed to login");
+	RT.impulse(None, 12, "test", &[][..]).expect("Failed");
 }
 
 /// Sends a message to the global runtime instance, pretending that the message was sent from the from address provided.

@@ -563,6 +563,12 @@ impl Rt {
 			.context(InstantiationSnafu)
 			.context(ModuleSnafu)?;
 
+		log(&format!(
+			"{} is {:?}",
+			slot,
+			instance.exports.get_function("init")
+		));
+
 		if let Ok(init) = instance.exports.get_function("init") {
 			if let Some(addr) = spawner {
 				init.call(&mut store, &[Value::I32(addr as i32)]).unwrap();
