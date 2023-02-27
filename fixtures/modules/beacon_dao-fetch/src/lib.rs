@@ -1,4 +1,5 @@
 use beacon_dao_dom::eval_js;
+use beacon_dao_logger_manager::info;
 use beacon_dao_permissions::{
 	beacon_dao_allocator::{len, read},
 	has_permission, register_permission,
@@ -14,8 +15,8 @@ use std::{
 };
 use vision_derive::with_bindings;
 use vision_utils::types::{
-	Address, Callback, DISPLAY_MANAGER_ADDR, DOM_ADDR, EXIT_FAILURE, EXIT_SUCCESS,
-	MOCK_ALLOCATOR_ADDR, PERM_ADDR,
+	Address, Callback, DISPLAY_MANAGER_ADDR, DOM_ADDR, EXIT_FAILURE, EXIT_SUCCESS, LOGGER_ADDR,
+	MOCK_ALLOCATOR_ADDR, PERM_ADDR, WEB3_ADDR,
 };
 
 const PERM: &'static str = "make_http_request";
@@ -61,8 +62,9 @@ pub struct Options {
 /// An HTTP response.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Response {
-	pub body: Option<Map<String, Value>>,
+	pub body: Option<Value>,
 	pub status: usize,
+	pub json: Option<Value>,
 }
 
 #[cfg(feature = "module")]
@@ -92,7 +94,7 @@ pub extern "C" fn handle_fetch(
 		PERM.into(),
 		Callback::new(move |has_perm: bool| {
 			// Only let permissioned users make HTTP requests
-			if !has_perm && from != DISPLAY_MANAGER_ADDR {
+			if !has_perm && from != DISPLAY_MANAGER_ADDR && from != WEB3_ADDR {
 				callback.call(Err(()));
 
 				return;
@@ -138,7 +140,8 @@ pub extern "C" fn handle_fetch(
 				DOM_ADDR,
 				format!(
 					"fetch('{}', {})
-						  .then((resp) => impulse(address(), 'fetch_resp', {}, {{ status: resp.status, body: resp.body }}))
+						  .then((resp) => resp.json().then((json) => [resp, json]))
+						  .then(([resp, json]) => impulse(address(), 'fetch_resp', {}, {{ status: resp.status, body: resp.body, json: json }}))
 						  .catch((err) => impulse(address(), 'fetch_resp_err', {}, err))",
 					resource, opts_ser, slot, slot,
 				),

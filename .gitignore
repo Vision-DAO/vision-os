@@ -214,3 +214,4 @@ flycheck_*.el
 # Compiled TypeScript Bindings
 types/contracts/
 types/factories/
+abi/

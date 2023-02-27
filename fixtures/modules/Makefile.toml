@@ -11,7 +11,13 @@ dependencies = ["build_all_flow", "run_test_runner"]
 
 [tasks.build]
 workspace = false
-dependencies = ["build_all_flow", "build_scheduler"]
+dependencies = ["build_contracts", "build_all_flow", "build_scheduler"]
+
+[tasks.build_contracts]
+workspace = false
+script = '''
+cd .. && yarn hardhat compile && yarn run hardhat export-abi --no-compile
+'''
 
 [tasks.build_scheduler]
 workspace = false

@@ -1,8 +1,9 @@
-use beacon_dao_fetch::{fetch, Method, Options, OptionsBuilder};
+use beacon_dao_fetch::{fetch, Method, Options, OptionsBuilder, Response};
 use beacon_dao_permissions::{has_permission, register_permission};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
+	collections::HashMap,
 	error::Error as StdError,
 	sync::{Arc, RwLock},
 };
@@ -20,6 +21,7 @@ const PERM_USE_DESC: &'static str = "interact with the Ethereum network.";
 pub enum Error {
 	NoPermission,
 	SerializationError,
+	ServerError,
 }
 
 /// An EVM compatible network.
@@ -123,6 +125,7 @@ pub struct Request {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum BlockSelector {
 	Latest,
 	Earliest,
@@ -145,11 +148,11 @@ impl From<BlockSelector> for String {
 #[derive(Serialize, Deserialize)]
 pub struct TransactionCall {
 	pub from: Option<[u8; 20]>,
-	pub to: [u8; 20],
+	pub to: String,
 	pub gas: Option<usize>,
 	pub gasPrice: Option<usize>,
 	pub value: Option<usize>,
-	pub data: Option<Vec<u8>>,
+	pub data: Option<String>,
 }
 
 /// Executes a call on an Ethereum contract. Wraps eth_call.
@@ -196,7 +199,15 @@ pub fn handle_eth_call(
 				url,
 				OptionsBuilder {
 					method: Some(Method::POST),
-					headers: None,
+					headers: Some({
+						let mut h = HashMap::new();
+						h.insert(
+							String::from("Content-Type"),
+							String::from("application/json"),
+						);
+
+						h
+					}),
 					body: Some(Request {
 						method: String::from("eth_call"),
 						jsonrpc: String::from("2.0"),
@@ -205,16 +216,19 @@ pub fn handle_eth_call(
 					}),
 				}
 				.into(),
-				Callback::new(|resp| {
-					extern "C" {
-						fn print(s: i32);
+				Callback::new(|resp: Result<Response, ()>| {
+					// Get the ETH response and call the callback
+					if let Ok(resp) = resp {
+						if let Some(Value::Object(json)) = resp.json {
+							if let Some(Value::String(result)) = json.get("result") {
+								callback.call(Ok(result.clone()));
+
+								return;
+							}
+						}
 					}
 
-					let msg = std::ffi::CString::new(format!("resp {:?}", resp)).unwrap();
-
-					unsafe {
-						print(msg.as_ptr() as i32);
-					}
+					callback.call(Err(Error::ServerError));
 				}),
 			);
 		}),

@@ -2,7 +2,8 @@ use beacon_dao_dom::{create_element, eval_js};
 use beacon_dao_fetch::{fetch, OptionsBuilder, Response};
 use beacon_dao_logger_manager::info;
 use beacon_dao_web3::{
-	change_endpoint, eth_call, get_endpoint, BlockSelector, TransactionCall, DEFAULT_NETWORKS,
+	change_endpoint, eth_call, get_endpoint, BlockSelector, Error, TransactionCall,
+	DEFAULT_NETWORKS,
 };
 use ethabi::{Contract, Token};
 use serde::{Deserialize, Serialize};
@@ -82,18 +83,10 @@ pub extern "C" fn handle_login_as(from: Address, username: String, callback: Cal
 
 	// TODO: Resolve ENS name
 	// TODO: Resolve modules at that address
-	// Decode hex bytes from 0x string
-	let mut addr_bytes = [0; 20];
-	if let Err(_) = hex::decode_to_slice(username, &mut addr_bytes as &mut [u8]) {
-		callback.call(EXIT_FAILURE);
-
-		return;
-	}
-
 	// Get the IPFS address of the metadata associated with the user account
 	// by calling the HasMetadata interface
 	let contract = if let Ok(contract) = serde_json::from_str::<Contract>(include_str!(
-		"../../../../artifacts/contracts/interfaces/IHasMetadata.sol/IHasMetadata.json"
+		"../../../../abi/contracts/interfaces/IHasMetadata.sol/IHasMetadata.json"
 	)) {
 		contract
 	} else {
@@ -101,11 +94,12 @@ pub extern "C" fn handle_login_as(from: Address, username: String, callback: Cal
 
 		return;
 	};
-	let calldata = if let Ok(data) = contract
-		.function("ipfsAddr")
-		.and_then(|f| f.encode_input(&[]))
-	{
-		data
+
+	let calldata = if let Ok(v) = contract.function("ipfsAddr").and_then(|f| {
+		f.encode_input(&[])
+			.map(|bytes| format!("0x{}", hex::encode(bytes)))
+	}) {
+		v
 	} else {
 		callback.call(EXIT_FAILURE);
 
@@ -116,20 +110,38 @@ pub extern "C" fn handle_login_as(from: Address, username: String, callback: Cal
 		WEB3_ADDR,
 		TransactionCall {
 			from: None,
-			to: addr_bytes,
+			to: username,
 			gas: None,
 			gasPrice: None,
 			value: None,
 			data: Some(calldata),
 		},
 		BlockSelector::Latest,
-		Callback::new(|res| {
-			let v = if let Ok(v) = res {
+		Callback::new(move |res: Result<String, Error>| {
+			// Convert 0x.. to raw bytes
+			let bytes = if let Some(v) = res.ok().and_then(|v| hex::decode(&v[2..]).ok()) {
 				v
 			} else {
 				callback.call(EXIT_FAILURE);
 				return;
 			};
+
+			// Use ABI to get CID
+			let cid = if let Some(cid) = contract
+				.function("ipfsAddr")
+				.ok()
+				.and_then(|f| f.decode_output(bytes.as_slice()).ok())
+				.and_then(|tokens| match tokens.get(0) {
+					Some(Token::String(s)) => Some(s.clone()),
+					_ => None,
+				}) {
+				cid
+			} else {
+				callback.call(EXIT_FAILURE);
+				return;
+			};
+
+			info(LOGGER_ADDR, String::from(cid), Callback::new(|_| {}));
 		}),
 	)
 }
