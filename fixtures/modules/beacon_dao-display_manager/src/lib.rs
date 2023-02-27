@@ -1,5 +1,8 @@
 use beacon_dao_dom::{create_element, eval_js};
 use beacon_dao_fetch::{fetch, OptionsBuilder, Response};
+use beacon_dao_ipfs::{
+	change_rpc_endpoint as change_endpoint_ipfs, get_rpc_endpoint as get_endpoint_ipfs,
+};
 use beacon_dao_logger_manager::info;
 use beacon_dao_web3::{
 	change_endpoint, eth_call, get_endpoint, BlockSelector, Error, TransactionCall,
@@ -9,17 +12,17 @@ use ethabi::{Contract, Token};
 use serde::{Deserialize, Serialize};
 use std::sync::{
 	atomic::{AtomicUsize, Ordering},
-	Arc, RwLock,
+	Arc, Mutex, RwLock,
 };
 use vision_derive::{
-	beacon_dao_allocator::{allocate, grow, write},
+	beacon_dao_allocator::{allocate, grow, len, read, write},
 	with_bindings,
 };
 use vision_utils::{
 	actor::{address, spawn_actor_from},
 	types::{
 		Address, Callback, ALLOCATOR_ADDR, DOM_ADDR, EXIT_FAILURE, EXIT_SUCCESS, FETCH_ADDR,
-		LOGGER_ADDR, PERM_ADDR, PERM_AGENT_ADDR, WEB3_ADDR,
+		IPFS_ADDR, LOGGER_ADDR, PERM_ADDR, PERM_AGENT_ADDR, WEB3_ADDR,
 	},
 };
 
@@ -302,6 +305,34 @@ pub extern "C" fn handle_change_network(from: Address, nonce: usize, callback: C
 	);
 }
 
+/// Displays the endpoint chooser dialogue.
+#[no_mangle]
+pub extern "C" fn handle_change_ipfs_endpoint(
+	from: Address,
+	nonce: usize,
+	callback: Callback<u32>,
+) {
+	get_endpoint_ipfs(
+		IPFS_ADDR,
+		Callback::new(move |curr: String| {
+			create_element(
+				DOM_ADDR,
+				String::from("div"),
+				include_str!("./netdialogue/ipfsdialogue.html")
+					.to_owned()
+					.replace("#curr#", &curr),
+				Callback::new(move |_| {
+					eval_js(
+						DOM_ADDR,
+						include_str!("./netdialogue/ipfsdialogue.js").to_owned(),
+						Callback::new(|_| {}),
+					);
+				}),
+			);
+		}),
+	);
+}
+
 /// Changes the web3 adapter network according to the chosen network.
 #[no_mangle]
 pub extern "C" fn handle_do_change_network(from: Address, index: u32, callback: Callback<u32>) {
@@ -309,5 +340,46 @@ pub extern "C" fn handle_do_change_network(from: Address, index: u32, callback: 
 		WEB3_ADDR,
 		DEFAULT_NETWORKS[index as usize].clone(),
 		Callback::new(|_| {}),
+	);
+}
+
+/// Changes the IPFS endpoint according to the chosen RPC URL.
+#[no_mangle]
+pub extern "C" fn handle_do_change_endpoint(from: Address, json_cell: Address) {
+	// Wait until all characters have been read
+	len(
+		json_cell,
+		Callback::new(move |to_read| {
+			// Make a string of n spaces
+			let buff = Arc::new(Mutex::new(
+				(0..to_read).map(|_| '\0').collect::<Vec<char>>(),
+			));
+			let n_read = Arc::new(AtomicUsize::new(0));
+
+			// Concurrently read n bytes
+			for i in 0..to_read {
+				let buff = buff.clone();
+				let n_read = n_read.clone();
+
+				read(
+					json_cell,
+					i,
+					Callback::new(move |c: u8| {
+						*buff.lock().unwrap().get_mut(i as usize).unwrap() = c as char;
+
+						// We read the last character
+						if n_read.fetch_add(1usize, Ordering::SeqCst) == (to_read as usize) - 1usize
+						{
+							let read_str: String = buff.lock().unwrap().drain(..).collect();
+							change_endpoint_ipfs(
+								IPFS_ADDR,
+								read_str.replace("\"", ""),
+								Callback::new(|_| {}),
+							);
+						}
+					}),
+				);
+			}
+		}),
 	);
 }

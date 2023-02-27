@@ -113,6 +113,14 @@ pub fn start() {
 	)
 	.expect("Failed to start permissions delegate");
 
+	// IPFS
+	RT.spawn(
+		None,
+		include_bytes!("../../target/wasm32-unknown-unknown/release/beacon_dao_ipfs.wasm"),
+		true,
+	)
+	.expect("Failed to start IPFS");
+
 	RT.impulse(None, DISPLAY_MANAGER_ADDR, "display_login", &[][..])
 		.expect("Failed to login");
 }

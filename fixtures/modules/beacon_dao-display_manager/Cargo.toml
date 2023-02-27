@@ -17,6 +17,7 @@ beacon_dao-fetch = { path = "../beacon_dao-fetch" }
 lazy_static = "1.4.0"
 serde = { version = "1.0.145", features = ["serde_derive"] }
 beacon_dao-web3 = { path = "../beacon_dao-web3" }
+beacon_dao-ipfs = { path = "../beacon_dao-ipfs" }
 hex = "0.4.3"
 beacon_dao-logger_manager = { path = "../beacon_dao-logger_manager" }
 ethabi = { version = "18.0.0", features = ["serde"], default-features = false }

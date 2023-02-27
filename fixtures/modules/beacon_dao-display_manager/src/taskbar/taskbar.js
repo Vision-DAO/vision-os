@@ -22,3 +22,15 @@ netButton.addEventListener("mouseout", () => {
 });
 
 netButton.addEventListener("click", () => impulse(address(), "change_network", 0));
+
+const ipfsButton = document.getElementById("ipfsSelector");
+
+ipfsButton.addEventListener("mouseover", () => {
+	ipfsButton.style.opacity = "60%";
+});
+
+ipfsButton.addEventListener("mouseout", () => {
+	ipfsButton.style.opacity = "100%";
+});
+
+ipfsButton.addEventListener("click", () => impulse(address(), "change_ipfs_endpoint", 0));
