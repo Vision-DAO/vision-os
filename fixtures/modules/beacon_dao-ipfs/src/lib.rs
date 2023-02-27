@@ -1,4 +1,4 @@
-use beacon_dao_fetch::{fetch, Method, Options, OptionsBuilder, Response};
+use beacon_dao_fetch::{fetch_json, Method, Options, OptionsBuilder, Response};
 use beacon_dao_permissions::{has_permission, register_permission};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

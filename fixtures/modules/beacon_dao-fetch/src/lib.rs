@@ -81,7 +81,7 @@ pub extern "C" fn handle_init_async(owner: Address) {
 /// Calls the fetch window method with the provided arguments.
 #[no_mangle]
 #[with_bindings]
-pub extern "C" fn handle_fetch(
+pub extern "C" fn handle_fetch_json(
 	from: Address,
 	resource: String,
 	opts: Options,
