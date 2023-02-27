@@ -149,7 +149,7 @@ pub struct TransactionCall {
 	pub gas: Option<usize>,
 	pub gasPrice: Option<usize>,
 	pub value: Option<usize>,
-	pub data: Option<String>,
+	pub data: Option<Vec<u8>>,
 }
 
 /// Executes a call on an Ethereum contract. Wraps eth_call.

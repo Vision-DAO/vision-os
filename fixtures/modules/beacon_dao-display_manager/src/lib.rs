@@ -4,6 +4,7 @@ use beacon_dao_logger_manager::info;
 use beacon_dao_web3::{
 	change_endpoint, eth_call, get_endpoint, BlockSelector, TransactionCall, DEFAULT_NETWORKS,
 };
+use ethabi::{Contract, Token};
 use serde::{Deserialize, Serialize};
 use std::sync::{
 	atomic::{AtomicUsize, Ordering},
@@ -90,6 +91,27 @@ pub extern "C" fn handle_login_as(from: Address, username: String, callback: Cal
 	}
 
 	// Get the IPFS address of the metadata associated with the user account
+	// by calling the HasMetadata interface
+	let contract = if let Ok(contract) = serde_json::from_str::<Contract>(include_str!(
+		"../../../../artifacts/contracts/interfaces/IHasMetadata.sol/IHasMetadata.json"
+	)) {
+		contract
+	} else {
+		callback.call(EXIT_FAILURE);
+
+		return;
+	};
+	let calldata = if let Ok(data) = contract
+		.function("ipfsAddr")
+		.and_then(|f| f.encode_input(&[]))
+	{
+		data
+	} else {
+		callback.call(EXIT_FAILURE);
+
+		return;
+	};
+
 	eth_call(
 		WEB3_ADDR,
 		TransactionCall {
@@ -98,7 +120,7 @@ pub extern "C" fn handle_login_as(from: Address, username: String, callback: Cal
 			gas: None,
 			gasPrice: None,
 			value: None,
-			data: None,
+			data: Some(calldata),
 		},
 		BlockSelector::Latest,
 		Callback::new(|res| {

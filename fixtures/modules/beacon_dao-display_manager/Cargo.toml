@@ -19,3 +19,7 @@ serde = { version = "1.0.145", features = ["serde_derive"] }
 beacon_dao-web3 = { path = "../beacon_dao-web3" }
 hex = "0.4.3"
 beacon_dao-logger_manager = { path = "../beacon_dao-logger_manager" }
+ethabi = { version = "18.0.0", features = ["serde"], default-features = false }
+fixed-hash = { version = "0.8.0", default-features = false }
+ethbloom = { version = "0.13.0", default-features = false }
+serde_json = "1.0.93"
