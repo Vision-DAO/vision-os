@@ -1,4 +1,8 @@
-use beacon_dao_fetch::{fetch_json, Method, Options, OptionsBuilder, Response};
+use beacon_dao_fetch::{
+	fetch_json, Method, Method as FetchMethod, Options as FetchOptions,
+	OptionsBuilder as FetchOptionsBuilder, Response,
+};
+use beacon_dao_logger_manager::info;
 use beacon_dao_permissions::{has_permission, register_permission};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -8,7 +12,9 @@ use std::{
 	sync::{Arc, RwLock},
 };
 use vision_derive::with_bindings;
-use vision_utils::types::{Address, Callback, DISPLAY_MANAGER_ADDR, FETCH_ADDR, PERM_ADDR};
+use vision_utils::types::{
+	Address, Callback, DISPLAY_MANAGER_ADDR, FETCH_ADDR, LOGGER_ADDR, PERM_ADDR,
+};
 
 const PERM_CHANGE: &'static str = "change provider";
 const PERM_CHANGE_DESC: &'static str = "change which IPFS provider you're connected to.";
@@ -17,7 +23,7 @@ const PERM_USE: &'static str = "use IPFS";
 const PERM_USE_DESC: &'static str = "interact with the IPFS network.";
 
 /// Errors that might be encountered when using this API.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum Error {
 	NoPermission,
 	SerializationError,
@@ -25,7 +31,7 @@ pub enum Error {
 }
 
 /// Providers known by the IPFS adapter by default.
-const DEFAULT_PROVIDER: &'static str = "https://dweb.link/";
+const DEFAULT_PROVIDER: &'static str = "http://localhost:8080";
 
 /// The current RPC endpoint in use.
 lazy_static::lazy_static! {
@@ -83,4 +89,67 @@ pub extern "C" fn handle_change_rpc_endpoint(
 #[with_bindings]
 pub extern "C" fn handle_get_rpc_endpoint(from: Address, callback: Callback<String>) {
 	callback.call(ADAPTER_RPC.write().unwrap().clone());
+}
+
+/// Options for how to conduct the query.
+#[derive(Serialize, Deserialize)]
+pub struct Options {
+	pub format: Option<Format>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum Format {
+	DagJson,
+}
+
+/// Gets an entry from the IPLD DAG.
+#[no_mangle]
+#[with_bindings]
+pub extern "C" fn handle_get_dag(
+	from: Address,
+	cid: String,
+	options: Options,
+	callback: Callback<Result<Value, Error>>,
+) {
+	has_permission(
+		PERM_ADDR,
+		from,
+		PERM_USE.to_owned(),
+		Callback::new(move |has_perm: bool| {
+			if !has_perm && from != DISPLAY_MANAGER_ADDR {
+				callback.call(Err(Error::NoPermission));
+				return;
+			}
+
+			let adapter = if let Ok(prov) = ADAPTER_RPC.read() {
+				prov
+			} else {
+				callback.call(Err(Error::ServerError));
+
+				return;
+			};
+
+			let url_opts = match options.format {
+				Some(Format::DagJson) => "?format=dag-json",
+				_ => "",
+			};
+
+			fetch_json(
+				FETCH_ADDR,
+				format!("{}/ipfs/{}{}", adapter, cid, url_opts),
+				<FetchOptionsBuilder<String> as Into<FetchOptions>>::into(FetchOptionsBuilder {
+					method: Some(FetchMethod::GET),
+					headers: None,
+					body: None,
+				}),
+				Callback::new(|resp: Result<Response, ()>| {
+					callback.call(
+						resp.ok()
+							.and_then(|resp| resp.json)
+							.ok_or(Error::ServerError),
+					);
+				}),
+			);
+		}),
+	);
 }

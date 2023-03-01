@@ -15,8 +15,8 @@ use std::{
 };
 use vision_derive::with_bindings;
 use vision_utils::types::{
-	Address, Callback, DISPLAY_MANAGER_ADDR, DOM_ADDR, EXIT_FAILURE, EXIT_SUCCESS, LOGGER_ADDR,
-	MOCK_ALLOCATOR_ADDR, PERM_ADDR, WEB3_ADDR,
+	Address, Callback, DISPLAY_MANAGER_ADDR, DOM_ADDR, EXIT_FAILURE, EXIT_SUCCESS, IPFS_ADDR,
+	LOGGER_ADDR, MOCK_ALLOCATOR_ADDR, PERM_ADDR, WEB3_ADDR,
 };
 
 const PERM: &'static str = "make_http_request";
@@ -94,7 +94,7 @@ pub extern "C" fn handle_fetch_json(
 		PERM.into(),
 		Callback::new(move |has_perm: bool| {
 			// Only let permissioned users make HTTP requests
-			if !has_perm && from != DISPLAY_MANAGER_ADDR && from != WEB3_ADDR {
+			if !has_perm && from != DISPLAY_MANAGER_ADDR && from != WEB3_ADDR && from != IPFS_ADDR {
 				callback.call(Err(()));
 
 				return;

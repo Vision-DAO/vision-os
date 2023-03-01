@@ -1,7 +1,8 @@
 use beacon_dao_dom::{create_element, eval_js};
-use beacon_dao_fetch::{fetch, OptionsBuilder, Response};
+use beacon_dao_fetch::{fetch_json, OptionsBuilder, Response};
 use beacon_dao_ipfs::{
-	change_rpc_endpoint as change_endpoint_ipfs, get_rpc_endpoint as get_endpoint_ipfs,
+	change_rpc_endpoint as change_endpoint_ipfs, get_dag, get_rpc_endpoint as get_endpoint_ipfs,
+	Format as IpfsFormat, Options as IpfsOptions,
 };
 use beacon_dao_logger_manager::info;
 use beacon_dao_web3::{
@@ -10,9 +11,13 @@ use beacon_dao_web3::{
 };
 use ethabi::{Contract, Token};
 use serde::{Deserialize, Serialize};
-use std::sync::{
-	atomic::{AtomicUsize, Ordering},
-	Arc, Mutex, RwLock,
+use serde_json::Map;
+use std::{
+	collections::HashMap,
+	sync::{
+		atomic::{AtomicUsize, Ordering},
+		Arc, Mutex, RwLock,
+	},
 };
 use vision_derive::{
 	beacon_dao_allocator::{allocate, grow, len, read, write},
@@ -71,6 +76,16 @@ fn spawn_bytes(bytes: Arc<Vec<u8>>, callback: Callback<u8>) {
 			);
 		}),
 	);
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct MetadataHaving {
+	payload: Vec<HashMap<String, String>>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Payload {
+	module: Vec<HashMap<String, String>>,
 }
 
 /// Loads the config profile at the specified Ethereum address.
@@ -144,9 +159,106 @@ pub extern "C" fn handle_login_as(from: Address, username: String, callback: Cal
 				return;
 			};
 
-			info(LOGGER_ADDR, String::from(cid), Callback::new(|_| {}));
+			// Get the content at the CID
+			get_dag(
+				IPFS_ADDR,
+				String::from(cid.clone()),
+				IpfsOptions {
+					format: Some(IpfsFormat::DagJson),
+				},
+				Callback::new(move |resp| {
+					let resp = if let Ok(resp) = resp {
+						resp
+					} else {
+						callback.call(EXIT_FAILURE);
+
+						return;
+					};
+
+					let metadata: MetadataHaving = if let Ok(v) = serde_json::from_value(resp) {
+						v
+					} else {
+						callback.call(EXIT_FAILURE);
+
+						return;
+					};
+
+					info(
+						LOGGER_ADDR,
+						format!("{:?}", metadata),
+						Callback::new(|_| {}),
+					);
+
+					let payload_cid = if let Some(cid) =
+						metadata.payload.get(0).and_then(|payload| payload.get("/"))
+					{
+						cid
+					} else {
+						callback.call(EXIT_FAILURE);
+
+						return;
+					};
+
+					info(
+						LOGGER_ADDR,
+						String::from(payload_cid),
+						Callback::new(|_| {}),
+					);
+
+					// Get the payload at the contained CID
+					// Register the user's callback for later
+					let slot = {
+						let mut slots = if let Ok(lock) = TASKS.write() {
+							lock
+						} else {
+							callback.call(2);
+
+							return;
+						};
+
+						let slot = slots.len();
+						slots.push(Some(callback));
+
+						slot
+					};
+
+					/*get_dag(
+						IPFS_ADDR,
+						String::from(payload_cid),
+						IpfsOptions {
+							format: Some(IpfsFormat::DagJson),
+						},
+						Callback::new(move |resp| {
+							info(LOGGER_ADDR, format!("{:?}", resp), Callback::new(|_| {}));
+						}),
+					);*/
+				}),
+			);
 		}),
 	)
+}
+
+#[no_mangle]
+#[with_bindings]
+pub extern "C" fn handle_load_payload(
+	from: Address,
+	payload_cid: String,
+	cb_id: u32,
+	callback: Callback<u32>,
+) {
+	let callback = if let Some(task) = TASKS
+		.write()
+		.ok()
+		.and_then(|mut tasks| tasks.get_mut(cb_id as usize).and_then(|task| task.take()))
+	{
+		task
+	} else {
+		callback.call(1);
+
+		return;
+	};
+
+	info(LOGGER_ADDR, payload_cid, Callback::new(|_| {}));
 }
 
 /// System dialogue callbacks.

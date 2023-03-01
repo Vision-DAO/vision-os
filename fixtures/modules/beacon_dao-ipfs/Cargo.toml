@@ -17,3 +17,4 @@ serde = { version = "1.0.145", features = ["serde_derive"] }
 serde_json = "1.0.86"
 beacon_dao-fetch = { path = "../beacon_dao-fetch" }
 lazy_static = "1.4.0"
+beacon_dao-logger_manager = { path = "../beacon_dao-logger_manager" }
