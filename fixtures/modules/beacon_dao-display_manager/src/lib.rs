@@ -199,12 +199,6 @@ pub extern "C" fn handle_login_as(from: Address, username: String, callback: Cal
 						return;
 					};
 
-					info(
-						LOGGER_ADDR,
-						String::from(payload_cid),
-						Callback::new(|_| {}),
-					);
-
 					// Get the payload at the contained CID
 					// Register the user's callback for later
 					let slot = {
@@ -222,16 +216,12 @@ pub extern "C" fn handle_login_as(from: Address, username: String, callback: Cal
 						slot
 					};
 
-					/*get_dag(
-						IPFS_ADDR,
-						String::from(payload_cid),
-						IpfsOptions {
-							format: Some(IpfsFormat::DagJson),
-						},
-						Callback::new(move |resp| {
-							info(LOGGER_ADDR, format!("{:?}", resp), Callback::new(|_| {}));
-						}),
-					);*/
+					load_payload(
+						address(),
+						payload_cid.clone(),
+						slot as u32,
+						Callback::new(|_| {}),
+					);
 				}),
 			);
 		}),
@@ -258,7 +248,18 @@ pub extern "C" fn handle_load_payload(
 		return;
 	};
 
-	info(LOGGER_ADDR, payload_cid, Callback::new(|_| {}));
+	info(LOGGER_ADDR, payload_cid.clone(), Callback::new(|_| {}));
+
+	get_dag(
+		IPFS_ADDR,
+		String::from(payload_cid),
+		IpfsOptions {
+			format: Some(IpfsFormat::DagJson),
+		},
+		Callback::new(move |resp| {
+			info(LOGGER_ADDR, format!("{:?}", resp), Callback::new(|_| {}));
+		}),
+	);
 }
 
 /// System dialogue callbacks.
