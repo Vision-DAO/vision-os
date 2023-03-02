@@ -1,24 +1,29 @@
-# Beacon DAO
+# Vision Operating System
 
-Implementation of the Vision [Beacon DAO](https://bookstack.visiondaodev.com/books/vision-v2-specification/chapter/beacon-dao)
-in Solidity, and core modules in Rust. Uses hardhat for testing.
+Implementation of a WebAssembly runtime ffor [actor-based](https://en.wikipedia.org/wiki/Actor_model) web3 applications.
 
 ## Dependencies
 
-* Rust - This repo implements multiple Vision modules in Rust, with [Cargo Make](https://github.com/sagiegurari/cargo-make)
+1. Rust - This repo implements multiple Vision modules in Rust, with [Cargo Make](https://github.com/sagiegurari/cargo-make)
 as its compilation harness.
-* Hardhat - This repo also implements DAO smart contracts in Solidity, and
-requires hardhat for testing
+
+```sh
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+cargo install --force cargo-make
+```
+
+* Hardhat - This repo also implements DAO smart contracts in Solidity, and requires hardhat for testing
+
+```sh
+yarn && yarn run build
+```
 
 ## Usage
 
-For consuming contracts, add this repository as a dependency, and import the
-relevant types, which are listed in `./types`. For example, to get the metadata
-address of an Idea:
+### Local Development
 
-```typescript
-import { Idea__factory } from "beacon-dao";
+After acquiring all necessary dependencies, simply run `cargo run` to launch the Vision Operating System.
 
-const idea = Idea__factory.connect(address, provider);
-console.log(await idea.ipfsAddr());
-```
+### Remote Development
+
+Development of Vision apps is possible inside the Vision Operating System. To do so, simply open https://os.vision.eco in a web browser.

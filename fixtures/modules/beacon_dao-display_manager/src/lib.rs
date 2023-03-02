@@ -2,7 +2,7 @@ use beacon_dao_dom::{create_element, eval_js};
 use beacon_dao_fetch::{fetch_json, OptionsBuilder, Response};
 use beacon_dao_ipfs::{
 	change_rpc_endpoint as change_endpoint_ipfs, get_dag, get_rpc_endpoint as get_endpoint_ipfs,
-	Format as IpfsFormat, Options as IpfsOptions,
+	Error as IpfsError, Format as IpfsFormat, Options as IpfsOptions,
 };
 use beacon_dao_logger_manager::info;
 use beacon_dao_web3::{
@@ -11,7 +11,7 @@ use beacon_dao_web3::{
 };
 use ethabi::{Contract, Token};
 use serde::{Deserialize, Serialize};
-use serde_json::Map;
+use serde_json::{Map, Value};
 use std::{
 	collections::HashMap,
 	sync::{
@@ -248,16 +248,28 @@ pub extern "C" fn handle_load_payload(
 		return;
 	};
 
-	info(LOGGER_ADDR, payload_cid.clone(), Callback::new(|_| {}));
-
 	get_dag(
 		IPFS_ADDR,
 		String::from(payload_cid),
 		IpfsOptions {
 			format: Some(IpfsFormat::DagJson),
 		},
-		Callback::new(move |resp| {
-			info(LOGGER_ADDR, format!("{:?}", resp), Callback::new(|_| {}));
+		Callback::new(move |resp: Result<Value, IpfsError>| {
+			let resp: Payload = if let Ok(resp) = resp.and_then(|resp| {
+				serde_json::from_value(resp).map_err(|_| IpfsError::SerializationError)
+			}) {
+				resp
+			} else {
+				callback.call(EXIT_FAILURE);
+
+				return;
+			};
+
+			info(
+				LOGGER_ADDR,
+				format!("resp: {:?}", resp),
+				Callback::new(|_| {}),
+			);
 		}),
 	);
 }

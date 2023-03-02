@@ -34,7 +34,8 @@
     "typescript": "^4.7.4"
   },
   "scripts": {
-    "prepack": "yarn tsc --build ./tsconfig.build.json"
+    "prepack": "yarn tsc --build ./tsconfig.build.json",
+    "build": "yarn hardhat compile && yarn run hardhat export-abi --no-compile"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.6.0",
