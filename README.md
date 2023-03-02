@@ -22,7 +22,7 @@ yarn && yarn run build
 
 ### Local Development
 
-After acquiring all necessary dependencies, simply run `cargo run` to launch the Vision Operating System.
+After acquiring all necessary dependencies, simply run `cargo make run` in the `fixtures/modules` directory to launch the Vision Operating System.
 
 ### Remote Development
 

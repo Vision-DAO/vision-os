@@ -3,7 +3,9 @@ CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 
 [tasks.run]
 workspace = false
-dependencies = ["build_all_flow", "run_scheduler"]
+script = '''
+mirin .
+'''
 
 [tasks.test]
 workspace = false

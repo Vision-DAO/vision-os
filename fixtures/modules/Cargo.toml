@@ -18,3 +18,6 @@ members = ["beacon_dao-permissions", "beacon_dao-logger", "beacon_dao-allocator"
 [build-dependencies]
 wasm-pack = "0.10.3"
 cargo-make = "0.35.13"
+
+[dev-dependencies]
+mirin = { git = "ssh://git@github.com/Vision-DAO/mirin.git" }
