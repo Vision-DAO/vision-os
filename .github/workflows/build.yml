@@ -21,6 +21,6 @@ jobs:
       - run: cargo +nightly install --git https://github.com/Vision-DAO/beacon-dao-factory
       - run: cd fixtures/modules && echo -n "export ARB_DEPLOYED=" > deployed
       - run: cd fixtures/modules && cargo make build
-      - run: cd fixtures/modules && DEPLOYMENT_PRIVATE_KEY=${{ secrets.DEPLOYMENT_PRIVATE_KEY }} daowiz new beacon_dao-scheduler/pkg/beacon_dao_scheduler.js beacon_dao-scheduler/pkg/beacon_dao_scheduler_bg.wasm --eth-rpc-uri https://endpoints.omniatech.io/v1/arbitrum/one/public --contracts-dir ../../artifacts --eth-chain-id 42161 >> deployed
+      - run: cd fixtures/modules && DEPLOYMENT_PRIVATE_KEY=${{ secrets.DEPLOYMENT_PRIVATE_KEY }} daowiz new beacon_dao-scheduler/pkg/beacon_dao_scheduler.js beacon_dao-scheduler/pkg/beacon_dao_scheduler_bg.wasm --eth-rpc-uri https://endpoints.omniatech.io/v1/arbitrum/one/public --contracts-dir ../../artifacts --eth-chain-id 42161 --ipfs-rpc-uri http://localhost:5001  >> deployed
       - run: cd fixtures/modules && source deployed && git clone git@github.com:Vision-DAO/beacon-dao-loader.git
       - run: cd beacon-dao-loader && yarn build && ipfs add -r .
