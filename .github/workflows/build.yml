@@ -10,7 +10,7 @@ jobs:
           run_daemon: true
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: nightly
       - name: Use Node.js 16
         uses: actions/setup-node@v3
         with:
