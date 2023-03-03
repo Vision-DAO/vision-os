@@ -10,8 +10,8 @@ crate-type = ["cdylib", "rlib"]
 module = []
 
 [dependencies]
-vision-utils = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git", features = [] }
-vision-derive = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git", features = [] }
+vision-utils = { git = "https://github.com/Vision-DAO/vision-utils", features = [] }
+vision-derive = { git = "https://github.com/Vision-DAO/vision-utils", features = [] }
 beacon_dao-permissions = { path = "../beacon_dao-permissions", features = [] }
 once_cell = "1.16.0"
 serde = { version = "1.0.145", features = ["serde_derive"] }

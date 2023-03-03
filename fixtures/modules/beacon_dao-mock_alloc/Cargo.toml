@@ -11,5 +11,5 @@ crate-type = ["cdylib", "rlib"]
 module = []
 
 [dependencies]
-vision-utils = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git", features = [] }
-vision-derive = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git", features = ["no_alloc"] }
+vision-utils = { git = "https://github.com/Vision-DAO/vision-utils", features = [] }
+vision-derive = { git = "https://github.com/Vision-DAO/vision-utils", features = ["no_alloc"] }

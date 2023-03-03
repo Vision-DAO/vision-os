@@ -10,5 +10,5 @@ crate-type = ["cdylib", "rlib"]
 module = []
 
 [dependencies]
-vision-utils = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git" }
+vision-utils = { git = "https://github.com/Vision-DAO/vision-utils" }
 beacon_dao-test_pong = { path = "../beacon_dao-test_pong" }

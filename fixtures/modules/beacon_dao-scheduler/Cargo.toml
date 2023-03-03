@@ -29,6 +29,6 @@ snafu = "0.7.1"
 console_error_panic_hook = "0.1.7"
 parking_lot = "0.12.1"
 web-sys = { version = "0.3.60", features = ["CanvasRenderingContext2d", "Document", "Element", "HtmlCanvasElement", "Window"] }
-vision-utils = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git" }
+vision-utils = { git = "https://github.com/Vision-DAO/vision-utils" }
 js-sys = "0.3.60"
 lazy_static = "1.4.0"

@@ -13,6 +13,6 @@ module = []
 
 [dependencies]
 web-sys = { version = "0.3.58", features = ["console"] }
-vision-utils = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git" }
-vision-derive = { git = "ssh://git@github.com/Vision-DAO/vision-utils.git", features = [] }
+vision-utils = { git = "https://github.com/Vision-DAO/vision-utils" }
+vision-derive = { git = "https://github.com/Vision-DAO/vision-utils", features = [] }
 lazy_static = "1.4.0"
