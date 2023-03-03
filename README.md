@@ -1,6 +1,6 @@
 # Vision Operating System
 
-Implementation of a WebAssembly runtime ffor [actor-based](https://en.wikipedia.org/wiki/Actor_model) web3 applications.
+Implementation of a WebAssembly runtime for [actor-based](https://en.wikipedia.org/wiki/Actor_model) web3 applications.
 
 ## Dependencies
 
