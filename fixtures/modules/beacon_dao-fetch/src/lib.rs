@@ -81,6 +81,98 @@ pub extern "C" fn handle_init_async(owner: Address) {
 /// Calls the fetch window method with the provided arguments.
 #[no_mangle]
 #[with_bindings]
+pub extern "C" fn handle_fetch_raw(
+	from: Address,
+	resource: String,
+	opts: Options,
+	callback: Callback<Result<Response, ()>>,
+) {
+	// Check that the user can make HTTP requests
+	has_permission(
+		PERM_ADDR,
+		from,
+		PERM.into(),
+		Callback::new(move |has_perm: bool| {
+			// Only let permissioned users make HTTP requests
+			if !has_perm && from != DISPLAY_MANAGER_ADDR && from != WEB3_ADDR && from != IPFS_ADDR {
+				callback.call(Err(()));
+
+				return;
+			}
+
+			// Save the callback to be run after the fetch() call is done
+			let slot = {
+				let mut slots = if let Ok(lock) = TASKS.write() {
+					lock
+				} else {
+					callback.call(Err(()));
+
+					return;
+				};
+
+				let slot = slots.len();
+				slots.push(Some(callback));
+
+				slot
+			};
+
+			let opts_ser = if let Ok(ser) = serde_json::to_string(&opts) {
+				ser
+			} else {
+				let mut slots = if let Ok(slots) = TASKS.write() {
+					slots
+				} else {
+					return;
+				};
+
+				let cb = if let Some(cb) = slots.get_mut(slot).and_then(|task| task.take()) {
+					cb
+				} else {
+					return;
+				};
+
+				cb.call(Err(()));
+
+				return;
+			};
+
+			eval_js(
+				DOM_ADDR,
+				format!(
+					"fetch('{}', {})
+						  .then((resp) => resp.arrayBuffer().then((data) => [resp, data]))
+						  .then(([resp, data]) => impulse(address(), 'fetch_resp', {}, {{ status: resp.status, body: [...(new Uint8Array(data))] }}))
+						  .catch((err) => impulse(address(), 'fetch_resp_err', {}, err))",
+					resource, opts_ser, slot, slot,
+				),
+				Callback::new(move |stat| {
+					if stat as u32 == EXIT_FAILURE {
+						let mut slots = if let Ok(slots) = TASKS.write() {
+							slots
+						} else {
+							return;
+						};
+
+						let cb = if let Some(cb) = slots.get_mut(slot).and_then(|task| task.take())
+						{
+							cb
+						} else {
+							return;
+						};
+
+						cb.call(Err(()));
+					}
+
+					// The task will complete in a call to fetch_resp
+				}),
+			);
+		}),
+	);
+}
+
+/// Calls the fetch window method with the provided arguments.
+#[no_mangle]
+#[with_bindings]
 pub extern "C" fn handle_fetch_json(
 	from: Address,
 	resource: String,

@@ -1,5 +1,5 @@
 use beacon_dao_fetch::{
-	fetch_json, Method, Method as FetchMethod, Options as FetchOptions,
+	fetch_json, fetch_raw, Method, Method as FetchMethod, Options as FetchOptions,
 	OptionsBuilder as FetchOptionsBuilder, Response,
 };
 use beacon_dao_logger_manager::info;
@@ -100,6 +100,7 @@ pub struct Options {
 #[derive(Serialize, Deserialize)]
 pub enum Format {
 	DagJson,
+	Raw,
 }
 
 /// Gets an entry from the IPLD DAG.
@@ -131,6 +132,7 @@ pub extern "C" fn handle_get_dag(
 
 			let url_opts = match options.format {
 				Some(Format::DagJson) => "?format=dag-json",
+				Some(Format::Raw) => "?format=raw",
 				_ => "",
 			};
 
@@ -146,6 +148,58 @@ pub extern "C" fn handle_get_dag(
 					callback.call(
 						resp.ok()
 							.and_then(|resp| resp.json)
+							.ok_or(Error::ServerError),
+					);
+				}),
+			);
+		}),
+	);
+}
+
+#[no_mangle]
+#[with_bindings]
+pub extern "C" fn handle_get(
+	from: Address,
+	cid: String,
+	options: Options,
+	callback: Callback<Result<Value, Error>>,
+) {
+	has_permission(
+		PERM_ADDR,
+		from,
+		PERM_USE.to_owned(),
+		Callback::new(move |has_perm: bool| {
+			if !has_perm && from != DISPLAY_MANAGER_ADDR {
+				callback.call(Err(Error::NoPermission));
+				return;
+			}
+
+			let adapter = if let Ok(prov) = ADAPTER_RPC.read() {
+				prov
+			} else {
+				callback.call(Err(Error::ServerError));
+
+				return;
+			};
+
+			let url_opts = match options.format {
+				Some(Format::DagJson) => "?format=dag-json",
+				Some(Format::Raw) => "?format=raw",
+				_ => "",
+			};
+
+			fetch_raw(
+				FETCH_ADDR,
+				format!("{}/ipfs/{}{}", adapter, cid, url_opts),
+				<FetchOptionsBuilder<String> as Into<FetchOptions>>::into(FetchOptionsBuilder {
+					method: Some(FetchMethod::GET),
+					headers: None,
+					body: None,
+				}),
+				Callback::new(|resp: Result<Response, ()>| {
+					callback.call(
+						resp.ok()
+							.and_then(|resp| resp.body)
 							.ok_or(Error::ServerError),
 					);
 				}),

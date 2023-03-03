@@ -1,8 +1,9 @@
 use beacon_dao_dom::{create_element, eval_js};
 use beacon_dao_fetch::{fetch_json, OptionsBuilder, Response};
 use beacon_dao_ipfs::{
-	change_rpc_endpoint as change_endpoint_ipfs, get_dag, get_rpc_endpoint as get_endpoint_ipfs,
-	Error as IpfsError, Format as IpfsFormat, Options as IpfsOptions,
+	change_rpc_endpoint as change_endpoint_ipfs, get, get_dag,
+	get_rpc_endpoint as get_endpoint_ipfs, Error as IpfsError, Format as IpfsFormat,
+	Options as IpfsOptions,
 };
 use beacon_dao_logger_manager::info;
 use beacon_dao_web3::{
@@ -45,7 +46,9 @@ pub enum DialogueKind {
 }
 
 /// Spawns an actor from the given bytes
-fn spawn_bytes(bytes: Arc<Vec<u8>>, callback: Callback<u8>) {
+#[no_mangle]
+#[with_bindings]
+pub extern "C" fn spawn_bytes(from: Address, bytes: Arc<Vec<u8>>, callback: Callback<u8>) {
 	allocate(
 		ALLOCATOR_ADDR,
 		Callback::new(|cell_addr| {
@@ -87,6 +90,9 @@ struct MetadataHaving {
 struct Payload {
 	module: Vec<HashMap<String, String>>,
 }
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Module(Vec<u8>);
 
 /// Loads the config profile at the specified Ethereum address.
 #[no_mangle]
@@ -183,12 +189,6 @@ pub extern "C" fn handle_login_as(from: Address, username: String, callback: Cal
 						return;
 					};
 
-					info(
-						LOGGER_ADDR,
-						format!("{:?}", metadata),
-						Callback::new(|_| {}),
-					);
-
 					let payload_cid = if let Some(cid) =
 						metadata.payload.get(0).and_then(|payload| payload.get("/"))
 					{
@@ -265,10 +265,43 @@ pub extern "C" fn handle_load_payload(
 				return;
 			};
 
-			info(
-				LOGGER_ADDR,
-				format!("resp: {:?}", resp),
-				Callback::new(|_| {}),
+			let payload_cid =
+				if let Some(cid) = resp.module.get(0).and_then(|payload| payload.get("/")) {
+					cid
+				} else {
+					callback.call(EXIT_FAILURE);
+
+					return;
+				};
+
+			// Load the binary module specified in the traversed data
+			get(
+				IPFS_ADDR,
+				payload_cid.to_owned(),
+				IpfsOptions {
+					format: Some(IpfsFormat::Raw),
+				},
+				Callback::new(|resp: Result<Value, IpfsError>| {
+					let resp: Module = if let Ok(resp) = resp.and_then(|resp| {
+						serde_json::from_value(resp).map_err(|_| IpfsError::SerializationError)
+					}) {
+						resp
+					} else {
+						callback.call(EXIT_FAILURE);
+
+						return;
+					};
+
+					let Module(v) = resp;
+
+					spawn_bytes(
+						address(),
+						Arc::new(v),
+						Callback::new(|_| {
+							callback.call(EXIT_SUCCESS);
+						}),
+					);
+				}),
 			);
 		}),
 	);
