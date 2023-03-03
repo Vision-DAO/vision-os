@@ -11,6 +11,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
+      - uses: Swatinem/rust-cache@v2
       - name: Use Node.js 16
         uses: actions/setup-node@v3
         with:
