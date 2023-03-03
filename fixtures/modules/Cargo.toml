@@ -20,4 +20,4 @@ wasm-pack = "0.10.3"
 cargo-make = "0.35.13"
 
 [dev-dependencies]
-mirin = { git = "ssh://git@github.com/Vision-DAO/mirin.git" }
+mirin = { git = "https://github.com/Vision-DAO/mirin" }
