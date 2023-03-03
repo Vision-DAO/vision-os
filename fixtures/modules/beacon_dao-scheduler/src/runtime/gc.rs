@@ -325,6 +325,9 @@ impl Rt {
 			src
 		};
 
+		log(&format!("{:?}", src));
+		log("328");
+
 		self.spawn(spawner, src, false)
 	}
 

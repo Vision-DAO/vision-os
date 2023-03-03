@@ -48,17 +48,29 @@ pub enum DialogueKind {
 /// Spawns an actor from the given bytes
 #[no_mangle]
 #[with_bindings]
-pub extern "C" fn spawn_bytes(from: Address, bytes: Arc<Vec<u8>>, callback: Callback<u8>) {
+pub extern "C" fn handle_spawn_bytes(from: Address, bytes: Vec<u8>, callback: Callback<u8>) {
+	let bytes = Arc::new(bytes);
+
+	extern "C" {
+		fn print(s: i32);
+	}
+
+	let msg = std::ffi::CString::new(format!("{:?}", bytes.len())).unwrap();
+
+	unsafe {
+		print(msg.as_ptr() as i32);
+	}
+
 	allocate(
 		ALLOCATOR_ADDR,
-		Callback::new(|cell_addr| {
+		Callback::new(move |cell_addr| {
 			grow(
 				cell_addr,
-				bytes.as_ref().len() as u32,
+				bytes.len() as u32,
 				Callback::new(move |_| {
 					let remaining = Arc::new(AtomicUsize::new(bytes.len()));
 
-					for (i, b) in bytes.as_ref().iter().enumerate() {
+					for (i, b) in bytes.iter().enumerate() {
 						let rem = remaining.clone();
 						let cb = callback.clone();
 						write(
@@ -278,9 +290,7 @@ pub extern "C" fn handle_load_payload(
 			get(
 				IPFS_ADDR,
 				payload_cid.to_owned(),
-				IpfsOptions {
-					format: Some(IpfsFormat::Raw),
-				},
+				IpfsOptions { format: None },
 				Callback::new(|resp: Result<Value, IpfsError>| {
 					let resp: Module = if let Ok(resp) = resp.and_then(|resp| {
 						serde_json::from_value(resp).map_err(|_| IpfsError::SerializationError)
@@ -296,7 +306,7 @@ pub extern "C" fn handle_load_payload(
 
 					spawn_bytes(
 						address(),
-						Arc::new(v),
+						v,
 						Callback::new(|_| {
 							callback.call(EXIT_SUCCESS);
 						}),
