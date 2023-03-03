@@ -51,16 +51,6 @@ pub enum DialogueKind {
 pub extern "C" fn handle_spawn_bytes(from: Address, bytes: Vec<u8>, callback: Callback<u8>) {
 	let bytes = Arc::new(bytes);
 
-	extern "C" {
-		fn print(s: i32);
-	}
-
-	let msg = std::ffi::CString::new(format!("{:?}", bytes.len())).unwrap();
-
-	unsafe {
-		print(msg.as_ptr() as i32);
-	}
-
 	allocate(
 		ALLOCATOR_ADDR,
 		Callback::new(move |cell_addr| {
