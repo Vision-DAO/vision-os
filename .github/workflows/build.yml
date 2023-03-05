@@ -19,8 +19,5 @@ jobs:
           cache: 'yarn'
       - run: yarn install
       - run: cargo install cargo-make
-      - run: cargo +nightly install --git https://github.com/Vision-DAO/beacon-dao-factory
-      - run: rustup target add wasm32-unknown-unknown
-      - run: cargo install wasm-pack
       - run: cd fixtures/modules && cargo make test
 
