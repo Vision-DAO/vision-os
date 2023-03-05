@@ -87,13 +87,15 @@ pub extern "C" fn handle_reassign(from: Address, new_owner: Address, callback: C
 #[no_mangle]
 #[with_bindings(self)]
 pub extern "C" fn handle_read(from: Address, offset: u32, callback: Callback<u8>) {
-	callback.call(
-		VAL.read()
-			.unwrap()
-			.get(offset as usize)
-			.map(|byte| *byte)
-			.unwrap(),
-	);
+	callback.call(do_read(offset));
+}
+
+pub fn do_read(offset: u32) -> u8 {
+	VAL.read()
+		.unwrap()
+		.get(offset as usize)
+		.map(|byte| *byte)
+		.unwrap()
 }
 
 #[no_mangle]
@@ -104,13 +106,18 @@ pub extern "C" fn handle_read_chunk(
 	size: u32,
 	callback: Callback<u128>,
 ) {
+	callback.call(do_read_chunk(offset, size));
+}
+
+fn do_read_chunk(offset: u32, size: u32) -> u128 {
 	let offset = offset as usize;
 	let size = size as usize;
 
 	let bytes: [u8; 16] = VAL.read().unwrap().as_slice()[offset..(offset + size)]
 		.try_into()
 		.unwrap();
-	callback.call(u128::from_le_bytes(bytes));
+
+	u128::from_le_bytes(bytes)
 }
 
 /// Synchronously reads from the cell.
@@ -134,13 +141,15 @@ pub extern "C" fn len_sync() -> u32 {
 pub extern "C" fn handle_write(from: Address, offset: u32, val: u8, callback: Callback<u8>) {
 	assert_isowner!(from, callback);
 
-	if let Ok(mut lock) = VAL.write() {
-		eassert!((offset as usize) < lock.len(), callback);
-
-		lock[offset as usize] = val;
-	}
+	do_write(offset, val);
 
 	callback.call(0);
+}
+
+pub fn do_write(offset: u32, val: u8) {
+	if let Ok(mut lock) = VAL.write() {
+		lock[offset as usize] = val;
+	}
 }
 
 #[no_mangle]
@@ -154,9 +163,14 @@ pub extern "C" fn handle_write_chunk(
 ) {
 	assert_isowner!(from, callback);
 
+	callback.call(do_write_chunk(offset, val, size));
+}
+
+fn do_write_chunk(offset: u32, val: u128, size: u32) -> u8 {
 	if let Ok(mut lock) = VAL.write() {
-		eassert!(((offset + size) as usize) < lock.len(), callback);
-		eassert!(size <= 16, callback);
+		if size > 16 || ((offset + size) as usize) < lock.len() {
+			return 1;
+		}
 
 		let bytes = val.to_le_bytes();
 
@@ -166,7 +180,7 @@ pub extern "C" fn handle_write_chunk(
 		}
 	}
 
-	callback.call(0);
+	0
 }
 
 #[no_mangle]
@@ -174,18 +188,71 @@ pub extern "C" fn handle_write_chunk(
 pub extern "C" fn handle_grow(from: Address, size: u32, callback: Callback<u8>) {
 	assert_isowner!(from, callback);
 
+	do_grow(size);
+
+	callback.call(0);
+}
+
+fn do_grow(size: u32) {
 	if let Ok(mut lock) = VAL.write() {
 		// Add `size` zero bytes to the buffer
 		for _ in 0..size {
 			lock.push(0);
 		}
 	}
-
-	callback.call(0);
 }
 
 #[no_mangle]
 #[with_bindings(self)]
 pub extern "C" fn handle_len(from: Address, callback: Callback<u32>) {
 	callback.call(VAL.read().unwrap().len().try_into().unwrap());
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use serial_test::serial;
+
+	fn clear() {
+		VAL.write().unwrap().clear();
+	}
+
+	#[test]
+	#[serial]
+	fn test_write() {
+		clear();
+
+		do_grow(1);
+		do_write(0, 69);
+		assert_eq!(do_read(0), 69);
+
+		do_grow(2);
+		do_write(1, 4);
+		do_write(2, 20);
+		assert_eq!(do_read(1), 4);
+		assert_eq!(do_read(2), 20);
+		assert_eq!(do_read(0), 69);
+	}
+
+	#[test]
+	#[serial]
+	fn test_chunks() {
+		clear();
+
+		// Try writing some chunks
+		let bytes: [u8; 16] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+		let packed = u128::from_le_bytes(bytes);
+
+		do_grow(16);
+		assert_eq!(do_write_chunk(0, packed, 16), 0);
+
+		for i in 0..16u8 {
+			assert_eq!(do_read(i as u32), i + 1);
+		}
+
+		// Try reading the chunks
+		let bytes2: [u8; 16] = do_read_chunk(0, 16).to_le_bytes();
+
+		assert_eq!(bytes, bytes2);
+	}
 }

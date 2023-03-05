@@ -9,7 +9,7 @@ mirin .
 
 [tasks.test]
 workspace = false
-dependencies = ["build_all_flow", "run_test_runner"]
+dependencies = ["test_all_flow"]
 
 [tasks.build]
 workspace = false
@@ -33,11 +33,12 @@ script = '''
 cd beacon_dao-scheduler && cargo run --features cli
 '''
 
-[tasks.run_test_runner]
-workspace = false
-script = '''
-cd beacon_dao-test && cargo run --features cli
-'''
+[tasks.test_all_flow]
+run_task = { name = "test_all", fork = true }
+
+[tasks.test_all]
+command = "cargo"
+args = ["test"]
 
 [tasks.build_all_flow]
 run_task = { name = "build_all", fork = true }
