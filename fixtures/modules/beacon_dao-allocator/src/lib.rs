@@ -96,6 +96,23 @@ pub extern "C" fn handle_read(from: Address, offset: u32, callback: Callback<u8>
 	);
 }
 
+#[no_mangle]
+#[with_bindings(self)]
+pub extern "C" fn handle_read_chunk(
+	from: Address,
+	offset: u32,
+	size: u32,
+	callback: Callback<u128>,
+) {
+	let offset = offset as usize;
+	let size = size as usize;
+
+	let bytes: [u8; 16] = VAL.read().unwrap().as_slice()[offset..(offset + size)]
+		.try_into()
+		.unwrap();
+	callback.call(u128::from_le_bytes(bytes));
+}
+
 /// Synchronously reads from the cell.
 #[no_mangle]
 pub extern "C" fn read_sync(offset: u32) -> u8 {
@@ -121,6 +138,32 @@ pub extern "C" fn handle_write(from: Address, offset: u32, val: u8, callback: Ca
 		eassert!((offset as usize) < lock.len(), callback);
 
 		lock[offset as usize] = val;
+	}
+
+	callback.call(0);
+}
+
+#[no_mangle]
+#[with_bindings(self)]
+pub extern "C" fn handle_write_chunk(
+	from: Address,
+	offset: u32,
+	val: u128,
+	size: u32,
+	callback: Callback<u8>,
+) {
+	assert_isowner!(from, callback);
+
+	if let Ok(mut lock) = VAL.write() {
+		eassert!(((offset + size) as usize) < lock.len(), callback);
+		eassert!(size <= 16, callback);
+
+		let bytes = val.to_le_bytes();
+
+		// Write each byte
+		for i in 0..size {
+			lock[(offset + i) as usize] = bytes[i as usize];
+		}
 	}
 
 	callback.call(0);

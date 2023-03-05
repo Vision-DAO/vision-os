@@ -4,13 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["cdylib"]
+
+[profile.release]
+lto = true
+opt-level = 'z'
 
 [features]
 module = []
-
-[dependencies]
-vision-utils = { git = "https://github.com/Vision-DAO/vision-utils" }
-vision-derive = { git = "https://github.com/Vision-DAO/vision-utils" }
-beacon_dao-permissions_consent = { path = "../beacon_dao-permissions_consent" }
-beacon_dao-logger_manager = { path = "../beacon_dao-logger_manager" }
